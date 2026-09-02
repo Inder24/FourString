@@ -1,0 +1,10 @@
+Ukulele sample recordings from FreePats ukulele1
+https://github.com/freepats/ukulele1
+
+Recorded by Mateusz Dabrowski from a Flight Fireball tenor ukulele.
+Published under the Creative Commons CC0 1.0 public domain dedication:
+https://creativecommons.org/publicdomain/zero/1.0/
+
+The source repository includes thirteen pitched recordings plus body-tap and
+muted-chuck articulations. These files are bundled locally so the instrument
+does not depend on an audio CDN at runtime.

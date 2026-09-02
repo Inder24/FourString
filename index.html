@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#f1eadd" />
+    <meta
+      name="description"
+      content="A playable, touch-friendly browser ukulele with real instrument samples."
+    />
+    <title>Four Strings — Browser Ukulele</title>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Four Strings home">
+          <span class="brand-mark" aria-hidden="true">
+            <span></span><span></span><span></span><span></span>
+          </span>
+          <span>
+            <span class="brand-name">Four Strings</span>
+            <span class="brand-kicker">a pocket ukulele</span>
+          </span>
+        </a>
+
+        <div class="topbar-meta">
+          <span class="tuning-pill" aria-label="Standard high-G tuning">
+            <span>high–G</span>
+            <strong>G · C · E · A</strong>
+          </span>
+          <span class="audio-status" id="audio-status" data-status="idle">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span id="audio-status-text">Sound off</span>
+          </span>
+        </div>
+      </header>
+
+      <section class="play-workbench" aria-labelledby="instrument-title">
+        <div class="workbench-heading">
+          <div>
+            <p class="eyebrow">Standard tuning · 12 frets</p>
+            <h1 id="instrument-title">Your uke, wherever you are.</h1>
+          </div>
+          <p class="mode-guidance" id="mode-guidance">
+            Tap the body for all four together, or sweep to strum.
+          </p>
+        </div>
+
+        <div class="control-ribbon" aria-label="Instrument controls">
+          <div class="mode-switch" role="group" aria-label="Playing mode">
+            <button class="mode-button is-selected" id="mode-strum" type="button" aria-pressed="true">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 4.5v9.25M12 3.5v10.25M15.5 5v8.75M7 13.75c-1.5 0-2.5 1-2.5 2.25s1 2.25 2.5 2.25h8.5c2.2 0 4-1.8 4-4v-2.5"/></svg>
+              Strum
+            </button>
+            <button class="mode-button" id="mode-explore" type="button" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18V8m4 10V5m4 13V9m4 9V3"/></svg>
+              Explore
+            </button>
+          </div>
+
+          <span class="control-separator" aria-hidden="true"></span>
+
+          <button class="utility-button" id="clear-button" type="button" aria-label="Clear frets">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5m4-5v5"/></svg>
+            <span>Clear</span>
+          </button>
+
+          <label class="volume-control" for="volume-range">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10v4h4l5 4V6l-5 4H5Zm12-1.5c1.5 2 1.5 5 0 7"/></svg>
+            <input id="volume-range" type="range" min="0" max="100" value="72" aria-label="Volume" />
+          </label>
+
+          <button class="icon-button" id="mute-button" type="button" aria-pressed="false" aria-label="Mute sound">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10v4h4l5 4V6l-5 4H5Zm12-1.5c1.5 2 1.5 5 0 7"/></svg>
+          </button>
+
+          <details class="help-menu">
+            <summary aria-label="Open playing help">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M9.8 9a2.3 2.3 0 1 1 3.4 2c-.8.5-1.2 1-1.2 2M12 16.5v.1"/></svg>
+            </summary>
+            <div class="help-popover">
+              <span class="popover-kicker">How to play</span>
+              <h2>Hold. Then strum.</h2>
+              <p>On touch, keep your fingers on the neck. Tap the body to play all four strings together, or sweep for an ordered strum.</p>
+              <p>With a mouse, click frets to latch them. In Explore, every fret sounds immediately—and Add notes builds a fingerpicking phrase.</p>
+              <dl>
+                <div><dt>1 / 2 / 3 / 4</dt><dd>Pluck A / E / C / G</dd></div>
+                <div><dt>Space</dt><dd>Play all together</dd></div>
+                <div><dt>⇧ Space</dt><dd>Strum up</dd></div>
+                <div><dt>Esc</dt><dd>Clear shape</dd></div>
+              </dl>
+            </div>
+          </details>
+        </div>
+
+        <section class="pattern-builder" id="pattern-builder" aria-labelledby="pattern-title" hidden>
+          <div class="pattern-intro">
+            <span class="pattern-kicker">Explore tool</span>
+            <strong id="pattern-title">Fingerpick pattern</strong>
+            <span>Tap frets in the order you want to hear them.</span>
+          </div>
+
+          <button class="pattern-arm" id="pattern-arm" type="button" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            <span>Add notes</span>
+          </button>
+
+          <div class="pattern-track">
+            <p class="pattern-empty" id="pattern-empty">Arm Add notes, then tap any string and fret. Repeats are welcome.</p>
+            <ol class="pattern-steps" id="pattern-steps" aria-label="Fingerpicking note order"></ol>
+          </div>
+
+          <div class="pattern-actions">
+            <span class="pattern-count" id="pattern-count">0 / 15</span>
+            <button class="pattern-play" id="pattern-play" type="button" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path class="play-icon-path" d="m9 7 8 5-8 5V7Z"/></svg>
+              <span id="pattern-play-text">Play</span>
+            </button>
+            <button class="pattern-action" id="pattern-undo" type="button" aria-label="Undo last note" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 5 11l4 4M5 11h8a5 5 0 0 1 5 5"/></svg>
+            </button>
+            <button class="pattern-action" id="pattern-clear" type="button" aria-label="Clear fingerpicking pattern" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M9 7V4h6v3m-8 0 1 13h8l1-13"/></svg>
+            </button>
+          </div>
+          <p class="sr-only" id="pattern-status" aria-live="polite"></p>
+        </section>
+
+        <div class="instrument-frame" id="instrument-frame" data-audio-ready="false" data-mode="strum">
+          <div class="instrument-layout">
+            <div class="neck-region">
+              <div class="neck-scroll" id="neck-scroll">
+                <section class="neck-module" aria-label="Ukulele fretboard">
+                  <div class="fret-labels" id="fret-labels" aria-hidden="true"></div>
+                  <div class="fretboard" id="fretboard" role="group" aria-label="Twelve-fret ukulele neck">
+                    <div class="neck-strings" id="neck-strings" aria-hidden="true"></div>
+                    <div class="position-markers" id="position-markers" aria-hidden="true"></div>
+                  </div>
+                </section>
+              </div>
+              <span class="neck-scroll-cue" aria-hidden="true">Swipe frets <span>→</span></span>
+            </div>
+
+            <section class="body-module" aria-label="Ukulele strumming area">
+              <div
+                class="strum-surface"
+                id="strum-surface"
+                role="group"
+                aria-label="Tap to play all four strings together, or sweep across them to strum in order"
+                tabindex="0"
+              >
+                <span class="body-binding" aria-hidden="true"></span>
+                <span class="sound-hole" aria-hidden="true"><span></span></span>
+                <span class="bridge" aria-hidden="true"></span>
+                <span class="strum-word" aria-hidden="true">STRUM</span>
+                <div class="body-string-names" id="body-string-names" aria-hidden="true"></div>
+                <div class="body-strings" id="body-strings" aria-hidden="true"></div>
+                <div class="ripple" id="ripple" aria-hidden="true"></div>
+              </div>
+            </section>
+          </div>
+
+          <div class="audio-gate" id="audio-gate">
+            <div class="gate-pick" aria-hidden="true">
+              <svg viewBox="0 0 64 64"><path d="M31.8 54.5C23 45.9 11 32.1 11 21.2 11 13.6 17.3 9 23.2 9c3.5 0 6.6 1.5 8.8 4 2.2-2.5 5.3-4 8.8-4C46.7 9 53 13.6 53 21.2c0 10.9-12 24.7-20.8 33.3h-.4Z"/></svg>
+            </div>
+            <div>
+              <span class="popover-kicker">Real sampled ukulele</span>
+              <h2 id="gate-title">Ready when you are.</h2>
+              <p id="gate-message">Enable sound to load the instrument into your browser.</p>
+            </div>
+            <button class="enable-button" id="enable-button" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z"/></svg>
+              <span>Enable sound</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="performance-readout">
+          <div class="now-playing" aria-live="polite" aria-atomic="true">
+            <span class="note-orb" id="note-orb">—</span>
+            <span>
+              <span class="readout-label" id="readout-label">Instrument</span>
+              <strong id="last-note">Waiting for your first note</strong>
+            </span>
+          </div>
+          <div class="input-hint" id="input-hint">
+            <span class="input-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M8.5 4.5v9.25M12 3.5v10.25M15.5 5v8.75M7 13.75c-1.5 0-2.5 1-2.5 2.25s1 2.25 2.5 2.25h8.5c2.2 0 4-1.8 4-4v-2.5"/></svg>
+            </span>
+            <span><strong>Touch:</strong> hold the neck with one hand, strum with the other</span>
+          </div>
+        </div>
+      </section>
+
+      <footer class="footer-note">
+        <span>G4 · C4 · E4 · A4</span>
+        <span>Audio stays on this device</span>
+        <span>FreePats CC0 recordings</span>
+      </footer>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
