@@ -24,7 +24,7 @@ export const UKULELE_STRINGS: readonly UkuleleString[] = [
 ] as const;
 
 export const FRET_COUNT = 12;
-export const MAX_PATTERN_STEPS = 15;
+export const MAX_PATTERN_STEPS = 30;
 
 const NOTE_NAMES = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
 

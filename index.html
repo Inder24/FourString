@@ -38,7 +38,7 @@
       <section class="play-workbench" aria-labelledby="instrument-title">
         <div class="workbench-heading">
           <div>
-            <p class="eyebrow">Standard tuning · 12 frets</p>
+            <p class="eyebrow" id="view-eyebrow">Play · Standard tuning</p>
             <h1 id="instrument-title">Your uke, wherever you are.</h1>
           </div>
           <p class="mode-guidance" id="mode-guidance">
@@ -47,16 +47,24 @@
         </div>
 
         <div class="control-ribbon" aria-label="Instrument controls">
-          <div class="mode-switch" role="group" aria-label="Playing mode">
-            <button class="mode-button is-selected" id="mode-strum" type="button" aria-pressed="true">
+          <nav class="mode-switch" aria-label="Primary">
+            <button class="mode-button is-selected" id="nav-play" type="button" aria-pressed="true">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 4.5v9.25M12 3.5v10.25M15.5 5v8.75M7 13.75c-1.5 0-2.5 1-2.5 2.25s1 2.25 2.5 2.25h8.5c2.2 0 4-1.8 4-4v-2.5"/></svg>
-              Strum
+              Play
             </button>
-            <button class="mode-button" id="mode-explore" type="button" aria-pressed="false">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18V8m4 10V5m4 13V9m4 9V3"/></svg>
-              Explore
+            <button class="mode-button" id="nav-practice" type="button" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2M9 3h6"/></svg>
+              Practice
             </button>
-          </div>
+            <button class="mode-button" id="mode-coach" type="button" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h2l1.5-5 3 10 3-13 2.5 8H20"/><path d="M4 20h16"/></svg>
+              Coach
+            </button>
+            <button class="mode-button" id="mode-tuner" type="button" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M4.5 12a7.5 7.5 0 0 1 15 0M12 5V3m0 18v-2m7-7h2M3 12h2"/></svg>
+              Tune
+            </button>
+          </nav>
 
           <span class="control-separator" aria-hidden="true"></span>
 
@@ -82,7 +90,7 @@
               <span class="popover-kicker">How to play</span>
               <h2>Hold. Then strum.</h2>
               <p>On touch, keep your fingers on the neck. Tap the body to play all four strings together, or sweep for an ordered strum.</p>
-              <p>With a mouse, click frets to latch them. In Explore, every fret sounds immediately—and Add notes builds a fingerpicking phrase.</p>
+              <p>One-hand touch latches frets so you can strum afterward. Two-hand touch holds the neck while another finger plays. Fingerpick previews notes and builds a phrase.</p>
               <dl>
                 <div><dt>1 / 2 / 3 / 4</dt><dd>Pluck A / E / C / G</dd></div>
                 <div><dt>Space</dt><dd>Play all together</dd></div>
@@ -92,6 +100,48 @@
             </div>
           </details>
         </div>
+
+        <div class="view-subnav" id="play-subnav" aria-label="Play options">
+          <div class="subnav-switch" role="group" aria-label="Play style">
+            <button class="is-selected" id="mode-strum" type="button" aria-pressed="true">Strum</button>
+            <button id="mode-explore" type="button" aria-pressed="false">Fingerpick</button>
+          </div>
+          <span class="subnav-note" id="play-subnav-note">Set a shape, then play the body.</span>
+          <div class="hand-layout" role="group" aria-label="Touch playing layout">
+            <span>Touch</span>
+            <button id="layout-one-hand" type="button" aria-pressed="false">One hand</button>
+            <button id="layout-two-hands" type="button" aria-pressed="true">Two hands</button>
+          </div>
+          <button class="focus-button" id="focus-mode" type="button" aria-pressed="false" aria-label="Enter focus view">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4H4v4m12-4h4v4M8 20H4v-4m12 4h4v-4"/></svg>
+            <span>Focus view</span>
+          </button>
+        </div>
+
+        <nav class="view-subnav practice-subnav" id="practice-subnav" aria-label="Practice options" hidden>
+          <div class="subnav-switch" role="group" aria-label="Practice type">
+            <button class="is-selected" id="mode-practice" type="button" aria-pressed="true">10-minute session</button>
+            <button id="mode-chapters" type="button" aria-pressed="false">Songs</button>
+          </div>
+          <span class="subnav-note">A guided path today, a song when you want one.</span>
+        </nav>
+
+        <section class="practice-input-choice instrument-source-choice" id="instrument-source-choice" aria-label="Choose an instrument" hidden>
+          <div class="practice-input-copy">
+            <span id="instrument-source-title">Practice with</span>
+            <small id="practice-input-note">Use the playable fretboard and get exact shape feedback.</small>
+          </div>
+          <div class="practice-input-buttons" role="group" aria-label="Instrument source">
+            <button class="is-selected" id="practice-input-screen" type="button" aria-pressed="true">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v11H5zM9 20h6M12 16v4"/></svg>
+              <span>On-screen ukulele</span>
+            </button>
+            <button id="practice-input-real" type="button" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-4a3.5 3.5 0 0 0-7 0v4A3.5 3.5 0 0 0 12 15Z"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3m-3 0h6"/></svg>
+              <span>My ukulele</span>
+            </button>
+          </div>
+        </section>
 
         <section class="pattern-builder" id="pattern-builder" aria-labelledby="pattern-title" hidden>
           <div class="pattern-intro">
@@ -111,7 +161,12 @@
           </div>
 
           <div class="pattern-actions">
-            <span class="pattern-count" id="pattern-count">0 / 15</span>
+            <label class="pattern-tempo" for="pattern-tempo">
+              <span>Tempo</span>
+              <output id="pattern-tempo-value" for="pattern-tempo">90 BPM</output>
+              <input id="pattern-tempo" type="range" min="50" max="180" step="5" value="90" />
+            </label>
+            <span class="pattern-count" id="pattern-count">0 / 30</span>
             <button class="pattern-play" id="pattern-play" type="button" disabled>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path class="play-icon-path" d="m9 7 8 5-8 5V7Z"/></svg>
               <span id="pattern-play-text">Play</span>
@@ -124,6 +179,335 @@
             </button>
           </div>
           <p class="sr-only" id="pattern-status" aria-live="polite"></p>
+        </section>
+
+        <section class="tuner-workbench" id="tuner-workbench" aria-labelledby="tuner-title" hidden>
+          <div class="tuner-copy">
+            <span class="section-kicker">Chromatic listening · GCEA targets</span>
+            <h2 id="tuner-title">Tune one string at a time.</h2>
+            <p>Choose Auto or lock a string, pluck your real ukulele, and let the note ring. The microphone audio never leaves this browser.</p>
+            <div class="tuner-targets" role="group" aria-label="Tuning target">
+              <button class="tuner-target is-selected" data-target="auto" type="button" aria-pressed="true">Auto</button>
+              <button class="tuner-target" data-target="G" type="button" aria-pressed="false"><span>4</span> G</button>
+              <button class="tuner-target" data-target="C" type="button" aria-pressed="false"><span>3</span> C</button>
+              <button class="tuner-target" data-target="E" type="button" aria-pressed="false"><span>2</span> E</button>
+              <button class="tuner-target" data-target="A" type="button" aria-pressed="false"><span>1</span> A</button>
+            </div>
+            <button class="reference-button tuner-reference" id="tuner-hear-target" type="button" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z"/></svg>
+              <span>Hear G4 reference</span>
+            </button>
+            <p class="tuner-reference-note" id="tuner-reference-note">Listen first, then pluck. Reference audio is ignored by the tuner.</p>
+            <button class="tuner-toggle" id="tuner-toggle" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-4a3.5 3.5 0 0 0-7 0v4A3.5 3.5 0 0 0 12 15Z"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3m-3 0h6"/></svg>
+              <span>Start listening</span>
+            </button>
+          </div>
+
+          <div class="tuner-meter" id="tuner-meter" data-tuning="idle">
+            <div class="tuner-note-wrap">
+              <span class="tuner-overtone" id="tuner-string-label">Play a string</span>
+              <strong class="tuner-note" id="tuner-note">—</strong>
+              <span class="tuner-frequency" id="tuner-frequency">Waiting for sound</span>
+            </div>
+            <div class="tuner-scale" aria-hidden="true">
+              <span class="tuner-zone"></span>
+              <i style="--tick: 0"></i><i style="--tick: 1"></i><i style="--tick: 2"></i><i style="--tick: 3"></i><i style="--tick: 4"></i>
+              <span class="tuner-needle" id="tuner-needle"></span>
+            </div>
+            <div class="tuner-scale-labels"><span>−50</span><strong id="tuner-cents">0 cents</strong><span>+50</span></div>
+            <p class="tuner-status" id="tuner-status" aria-live="polite">Microphone is off.</p>
+          </div>
+        </section>
+
+        <section class="coach-workbench" id="coach-workbench" aria-labelledby="coach-title" hidden>
+          <div class="coach-brief">
+            <span class="section-kicker" id="coach-kicker">Real ukulele · microphone</span>
+            <h2 id="coach-title">Listen. Adjust. Repeat.</h2>
+            <p id="coach-copy">Four Strings listens locally and responds while the note is still ringing.</p>
+
+            <div class="coach-setup" aria-label="Listening setup">
+              <span><i aria-hidden="true"></i>Quiet room</span>
+              <span><i aria-hidden="true"></i>Phone 20–40 cm away</span>
+              <span><i aria-hidden="true"></i>One note at a time</span>
+            </div>
+
+            <div class="coach-drills" role="group" aria-label="Coaching drill">
+              <button class="coach-drill is-selected" data-coach-drill="strings" type="button" aria-pressed="true">
+                <span>01</span><strong>String clarity</strong><small>G · C · E · A</small>
+              </button>
+              <button class="coach-drill" data-coach-drill="pulse" type="button" aria-pressed="false">
+                <span>02</span><strong>Steady pulse</strong><small>8 strums · 72 BPM</small>
+              </button>
+            </div>
+
+            <button class="coach-toggle" id="coach-toggle" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-4a3.5 3.5 0 0 0-7 0v4A3.5 3.5 0 0 0 12 15Z"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3m-3 0h6"/></svg>
+              <i class="coach-screen-glyph" aria-hidden="true">▶</i>
+              <span>Start coaching</span>
+            </button>
+            <p class="coach-privacy" id="coach-privacy">Best for single notes and rhythm. Audio is analysed on this device and never stored.</p>
+          </div>
+
+          <div class="coach-live" id="coach-live" data-grade="waiting" data-drill="strings">
+            <div class="coach-live-head">
+              <div>
+                <span id="coach-progress">String 1 of 4</span>
+                <strong id="coach-goal">Play G4</strong>
+              </div>
+              <span class="coach-next" id="coach-next">Next · C4</span>
+            </div>
+
+            <section class="learning-layers learning-layers-dark coach-guidance" aria-label="Coach play, listen, and hint guidance">
+              <article class="learning-layer learning-layer-play">
+                <span class="learning-layer-label"><i>1</i> Play</span>
+                <strong id="coach-layer-target">Open G4</strong>
+                <small id="coach-layer-notes">String 4 · 392.0 Hz</small>
+              </article>
+              <article class="learning-layer learning-layer-listen">
+                <span class="learning-layer-label"><i>2</i> Listen</span>
+                <button class="reference-button" id="coach-hear-target" type="button" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z"/></svg>
+                  <span>Hear G4</span>
+                </button>
+                <small id="coach-reference-status" aria-live="polite">Reference is never scored.</small>
+              </article>
+              <article class="learning-layer learning-layer-hint">
+                <span class="learning-layer-label"><i>3</i> Hint</span>
+                <strong id="coach-layer-hint">Use your thumb and let one string ring.</strong>
+                <small id="coach-layer-hint-detail">Compare the pitch after the reference fades.</small>
+              </article>
+            </section>
+
+            <div class="string-echo" id="coach-string-echo" aria-label="Four-string listening progress">
+              <div class="echo-string is-current" data-coach-string="0"><span>4</span><strong>G</strong><i></i><small>next</small></div>
+              <div class="echo-string" data-coach-string="1"><span>3</span><strong>C</strong><i></i><small>waiting</small></div>
+              <div class="echo-string" data-coach-string="2"><span>2</span><strong>E</strong><i></i><small>waiting</small></div>
+              <div class="echo-string" data-coach-string="3"><span>1</span><strong>A</strong><i></i><small>waiting</small></div>
+            </div>
+
+            <div class="coach-reading">
+              <span class="coach-heard-label">Heard</span>
+              <strong id="coach-heard-note">—</strong>
+              <span id="coach-heard-detail">Waiting for a clear note</span>
+            </div>
+
+            <div class="coach-hold" id="coach-hold" aria-label="Steady note progress">
+              <span>Hold it steady</span>
+              <div aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            </div>
+
+            <div class="coach-signal" aria-hidden="true">
+              <span id="coach-signal">Signal · waiting</span>
+              <span id="coach-signal-detail">Local analysis</span>
+            </div>
+
+            <div class="coach-beats" id="coach-beats" aria-label="Eight-beat rhythm progress" hidden>
+              <span class="is-current">1</span><span>2</span><span>3</span><span>4</span>
+              <span>5</span><span>6</span><span>7</span><span>8</span>
+            </div>
+            <p class="coach-status" id="coach-status" aria-live="polite">Choose a drill, then start coaching.</p>
+          </div>
+        </section>
+
+        <section class="practice-workbench" id="practice-workbench" aria-labelledby="practice-title" data-session="idle" hidden>
+          <header class="practice-header">
+            <div>
+              <span class="section-kicker" id="practice-kicker">Adaptive daily session · screen instrument</span>
+              <h2 id="practice-title">Ten minutes. One useful improvement.</h2>
+              <p id="practice-description">The session notices clean shapes and missed changes, then adjusts the working tempo.</p>
+            </div>
+            <div class="practice-session-actions">
+              <output class="practice-clock" id="practice-clock" aria-label="Practice time remaining">10:00</output>
+              <button class="practice-start" id="practice-start" type="button">Start session</button>
+            </div>
+          </header>
+
+          <div class="practice-song-choice" role="group" aria-label="Practice song">
+            <span>Musical finish</span>
+            <button class="is-selected" data-practice-song="lathe-di-chadar" type="button" aria-pressed="true">Lathe Di Chadar</button>
+            <button data-practice-song="khaab" type="button" aria-pressed="false">Khaab</button>
+          </div>
+
+          <ol class="practice-timeline" id="practice-timeline" aria-label="Ten-minute practice stages"></ol>
+
+          <section class="learning-layers practice-guidance" aria-label="Practice play, listen, and hint guidance">
+            <article class="learning-layer learning-layer-play">
+              <span class="learning-layer-label"><i>1</i> Play</span>
+              <strong id="practice-layer-target">4 · G4</strong>
+              <small id="practice-layer-notes">Open G string · 392.0 Hz</small>
+            </article>
+            <article class="learning-layer learning-layer-listen">
+              <span class="learning-layer-label"><i>2</i> Listen</span>
+              <div class="reference-actions">
+                <button class="reference-button" id="practice-hear-target" type="button" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z"/></svg>
+                  <span>Hear G4</span>
+                </button>
+                <button class="reference-button reference-button-quiet" id="practice-hear-bar" type="button" aria-pressed="false">
+                  <span>Hear sequence</span>
+                </button>
+              </div>
+              <div class="reference-speed" role="group" aria-label="Practice reference speed">
+                <span>Speed</span>
+                <button data-reference-speed="0.5" type="button" aria-pressed="false">50%</button>
+                <button class="is-selected" data-reference-speed="0.75" type="button" aria-pressed="true">75%</button>
+                <button data-reference-speed="1" type="button" aria-pressed="false">100%</button>
+              </div>
+              <small id="practice-reference-status" aria-live="polite">Tap a reference, then copy it.</small>
+            </article>
+            <article class="learning-layer learning-layer-hint">
+              <span class="learning-layer-label"><i>3</i> Hint</span>
+              <strong id="practice-layer-hint">Pluck with your thumb, then let the note breathe.</strong>
+              <small id="practice-layer-hint-detail">One clean note matters more than speed.</small>
+            </article>
+          </section>
+
+          <div class="practice-focus">
+            <div class="practice-task">
+              <span class="practice-stage-label" id="practice-stage-label">Ready · 1 minute</span>
+              <h3 id="practice-stage-title">Wake up all four strings</h3>
+              <p id="practice-stage-copy">Pluck G, C, E and A cleanly. Listen for an even start and a natural ring.</p>
+              <div class="practice-target" id="practice-target">
+                <span>First target</span>
+                <strong>4 · G</strong>
+                <small>Open string</small>
+              </div>
+            </div>
+
+            <aside class="practice-insight" aria-label="Adaptive coaching note">
+              <span class="practice-insight-kicker" id="practice-insight-kicker">Screen feedback</span>
+              <strong id="practice-insight">Begin slowly. The session will find what needs another repetition.</strong>
+              <p class="practice-progress-detail" id="practice-progress-detail">0 of 8 targets complete</p>
+              <dl>
+                <div><dt>Working tempo</dt><dd id="practice-tempo">72 BPM</dd></div>
+                <div><dt id="practice-clean-label">Correct moves</dt><dd id="practice-clean">0</dd></div>
+                <div><dt>Try again</dt><dd id="practice-misses">0</dd></div>
+              </dl>
+              <p class="practice-adjustment" id="practice-adjustment">Tempo changes after three correct moves or two misses.</p>
+              <div class="practice-insight-actions">
+                <button id="practice-next" type="button" disabled>Next exercise</button>
+                <button id="practice-reset" type="button" disabled>Reset</button>
+              </div>
+            </aside>
+          </div>
+          <p class="practice-status" id="practice-status" aria-live="polite">Start when your hands are ready. You can finish early when a stage is mastered.</p>
+        </section>
+
+        <section class="lesson-workbench" id="lesson-workbench" aria-labelledby="lesson-song-title" hidden>
+          <div class="song-browser">
+            <label class="song-search" for="song-search">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4 4"/></svg>
+              <span class="sr-only">Search songs</span>
+              <input id="song-search" type="search" placeholder="Search songs, artists or styles" autocomplete="off" />
+              <kbd>/</kbd>
+            </label>
+            <div class="song-results" id="song-results" role="group" aria-label="Available songs"></div>
+          </div>
+
+          <header class="lesson-header">
+            <div>
+              <span class="section-kicker" id="lesson-rights">Traditional folk · original arrangement</span>
+              <h2 id="lesson-song-title">Lathe Di Chadar</h2>
+              <p id="lesson-song-meta">Punjabi folk · Key of C · 4/4 · C, Am, F &amp; G</p>
+            </div>
+            <div class="lesson-actions">
+              <button class="lesson-button lesson-button-secondary" id="lesson-demo" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path class="lesson-demo-icon" d="m9 7 8 5-8 5V7Z"/></svg>
+                <span>Hear 4-line demo</span>
+              </button>
+              <button class="lesson-button" id="lesson-practice" type="button">Start practice</button>
+            </div>
+          </header>
+
+          <section class="lesson-cue" id="lesson-cue" data-state="ready" data-feedback="neutral" aria-label="Current lesson cue">
+            <div class="lesson-cue-context">
+              <span id="lesson-cue-mode">Get ready</span>
+              <strong id="lesson-cue-line">Part 1 · Latthe di chadar</strong>
+              <small id="lesson-cue-native">ਲੱਠੇ ਦੀ ਚਾਦਰ</small>
+            </div>
+            <div class="lesson-cue-chord">
+              <span id="lesson-cue-target-label">Chord now</span>
+              <strong id="lesson-cue-chord">C</strong>
+              <small id="lesson-cue-frets">G 0 · C 0 · E 0 · A 3</small>
+            </div>
+            <div class="lesson-mini-shape" id="lesson-cue-shape" aria-label="C chord, frets 0 0 0 3"></div>
+            <div class="lesson-cue-motion">
+              <span id="lesson-cue-beat">Beat 1 of 4</span>
+              <strong id="lesson-cue-gesture">↓ Down-strum</strong>
+              <div class="lesson-gesture-rail" id="lesson-gesture-rail" aria-label="Pattern progress"></div>
+            </div>
+            <div class="lesson-cue-next">
+              <span>Coming next</span>
+              <strong id="lesson-cue-next">↓ Down-strum</strong>
+              <small id="lesson-cue-next-detail">Stay on C</small>
+            </div>
+          </section>
+
+          <section class="learning-layers lesson-guidance" aria-label="Song notes, audio, and hint guidance">
+            <article class="learning-layer learning-layer-play">
+              <span class="learning-layer-label"><i>1</i> Notes</span>
+              <strong id="lesson-layer-target">C chord</strong>
+              <small id="lesson-layer-notes">G4 · C4 · E4 · C5</small>
+            </article>
+            <article class="learning-layer learning-layer-listen">
+              <span class="learning-layer-label"><i>2</i> Listen</span>
+              <div class="reference-actions">
+                <button class="reference-button" id="lesson-hear-chord" type="button" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z"/></svg>
+                  <span>Hear C chord</span>
+                </button>
+                <button class="reference-button reference-button-quiet" id="lesson-hear-bar" type="button" aria-pressed="false">
+                  <span>Hear one bar</span>
+                </button>
+              </div>
+              <div class="reference-speed" role="group" aria-label="Song reference speed">
+                <span>Speed</span>
+                <button data-reference-speed="0.5" type="button" aria-pressed="false">50%</button>
+                <button class="is-selected" data-reference-speed="0.75" type="button" aria-pressed="true">75%</button>
+                <button data-reference-speed="1" type="button" aria-pressed="false">100%</button>
+              </div>
+              <small id="lesson-reference-status" aria-live="polite">Hear the shape or preview one bar.</small>
+            </article>
+            <article class="learning-layer learning-layer-hint">
+              <span class="learning-layer-label"><i>3</i> Hint</span>
+              <strong id="lesson-layer-hint">Keep G, C and E open.</strong>
+              <small id="lesson-layer-hint-detail">Place your ring finger on A string, fret 3.</small>
+            </article>
+          </section>
+
+          <section class="lesson-take" aria-label="Saved lesson take">
+            <div class="lesson-take-copy">
+              <span class="section-kicker">My take</span>
+              <strong id="lesson-take-status">No take saved for this chapter</strong>
+              <small>Records your on-screen note events on this device—not microphone audio.</small>
+            </div>
+            <div class="lesson-take-actions">
+              <button id="lesson-take-record" type="button" aria-pressed="false">Record take</button>
+              <button id="lesson-take-play" type="button" aria-pressed="false" disabled>Play saved</button>
+              <button id="lesson-take-clear" class="lesson-take-clear" type="button" disabled>Clear</button>
+            </div>
+          </section>
+
+          <nav class="chapter-tabs" aria-label="Song chapters">
+            <button class="chapter-tab is-selected" data-chapter="1" type="button" aria-pressed="true"><span>01</span><strong>Folk pulse</strong></button>
+            <button class="chapter-tab" data-chapter="2" type="button" aria-pressed="false"><span>02</span><strong>Folk picking</strong></button>
+            <button class="chapter-tab" data-chapter="3" type="button" aria-pressed="false"><span>03</span><strong>Wedding strum</strong></button>
+          </nav>
+
+          <div class="lesson-stage">
+            <div class="lesson-technique">
+              <span class="lesson-progress" id="lesson-progress">Preview · 0 of 4 lines</span>
+              <h3 id="lesson-technique-title">Settle into the folk pulse</h3>
+              <p id="lesson-technique-copy">One relaxed down-strum per beat. Make the chord changes clean before adding movement.</p>
+              <div class="pattern-callout">
+                <span id="lesson-tempo">72 BPM · 4/4</span>
+                <strong id="lesson-pattern">D · D · D · D</strong>
+              </div>
+              <p class="lesson-status" id="lesson-status" aria-live="polite">Hear the example, then start when you feel the pulse.</p>
+            </div>
+            <ol class="lesson-lines" id="lesson-lines" aria-label="Verse one practice lines"></ol>
+          </div>
         </section>
 
         <div class="instrument-frame" id="instrument-frame" data-audio-ready="false" data-mode="strum">
@@ -166,17 +550,20 @@
             </div>
             <div>
               <span class="popover-kicker">Real sampled ukulele</span>
-              <h2 id="gate-title">Ready when you are.</h2>
-              <p id="gate-message">Enable sound to load the instrument into your browser.</p>
+              <h2 id="gate-title">How are you practising?</h2>
+              <p id="gate-message">Choose the screen instrument, or bring your real ukulele to the tuner.</p>
             </div>
-            <button class="enable-button" id="enable-button" type="button">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z"/></svg>
-              <span>Enable sound</span>
-            </button>
+            <div class="gate-actions">
+              <button class="enable-button" id="enable-button" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z"/></svg>
+                <span>Play on screen</span>
+              </button>
+              <button class="real-uke-button" id="real-uke-button" type="button">I have my ukulele</button>
+            </div>
           </div>
         </div>
 
-        <div class="performance-readout">
+        <div class="performance-readout" id="performance-readout">
           <div class="now-playing" aria-live="polite" aria-atomic="true">
             <span class="note-orb" id="note-orb">—</span>
             <span>

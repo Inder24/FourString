@@ -164,15 +164,25 @@ export class AudioEngine {
     this.applyMasterLevel();
   }
 
-  dispose(): void {
+  stopAllVoices(fadeSeconds = 0.025): void {
+    if (!this.context) return;
+    const now = this.context.currentTime;
+    const fade = Math.max(0.008, fadeSeconds);
     for (const voice of this.activeVoices.values()) {
+      voice.gain.gain.cancelScheduledValues(now);
+      voice.gain.gain.setValueAtTime(Math.max(voice.gain.gain.value, 0.0001), now);
+      voice.gain.gain.exponentialRampToValueAtTime(0.0001, now + fade);
       try {
-        voice.source.stop();
+        voice.source.stop(now + fade + 0.004);
       } catch {
         // The source may already have ended.
       }
     }
     this.activeVoices.clear();
+  }
+
+  dispose(): void {
+    this.stopAllVoices(0.008);
     void this.context?.close();
     this.context = null;
     this.master = null;
