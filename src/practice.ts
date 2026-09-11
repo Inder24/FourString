@@ -72,6 +72,56 @@ export const TEN_MINUTE_STAGES: readonly PracticeStage[] = [
 
 export const TEN_MINUTE_SECONDS = TEN_MINUTE_STAGES.reduce((sum, stage) => sum + stage.durationSeconds, 0);
 
+export type PitchEvidence = "match" | "quiet" | "mismatch";
+
+export interface PitchConfirmationResult {
+  matches: number;
+  required: number;
+  progress: number;
+  confirmed: boolean;
+}
+
+/**
+ * Confirms a played note across a short window while tolerating the tiny gaps
+ * that naturally occur between pitch readings during a real string's attack.
+ */
+export class PracticePitchConfirmation {
+  private matches: number[] = [];
+
+  constructor(
+    private readonly requiredMatches = 4,
+    private readonly windowMs = 650,
+    private readonly quietGraceMs = 320,
+  ) {}
+
+  observe(evidence: PitchEvidence, at: number): PitchConfirmationResult {
+    this.matches = this.matches.filter((matchAt) => at - matchAt <= this.windowMs);
+
+    if (evidence === "mismatch") {
+      this.matches = [];
+    } else if (evidence === "match") {
+      const previous = this.matches.at(-1);
+      if (previous !== undefined && at - previous > this.quietGraceMs) this.matches = [];
+      if (this.matches.at(-1) !== at) this.matches.push(at);
+    } else {
+      const previous = this.matches.at(-1);
+      if (previous !== undefined && at - previous > this.quietGraceMs) this.matches = [];
+    }
+
+    const count = Math.min(this.matches.length, this.requiredMatches);
+    return {
+      matches: count,
+      required: this.requiredMatches,
+      progress: count / this.requiredMatches,
+      confirmed: count >= this.requiredMatches,
+    };
+  }
+
+  reset(): void {
+    this.matches = [];
+  }
+}
+
 export function formatPracticeTime(seconds: number): string {
   const safe = Math.max(0, Math.ceil(seconds));
   return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, "0")}`;

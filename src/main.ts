@@ -36,6 +36,7 @@ import { InstrumentState } from "./state";
 import {
   adaptPracticeTempo,
   formatPracticeTime,
+  PracticePitchConfirmation,
   practiceStageOffsetSeconds,
   TEN_MINUTE_SECONDS,
   TEN_MINUTE_STAGES,
@@ -128,7 +129,8 @@ let practiceTimer = 0;
 let practiceSelectedSong: "lathe-di-chadar" | "khaab" = "lathe-di-chadar";
 let practiceAdjustment = "Tempo changes after three correct moves or two misses.";
 let practiceInput: PracticeInput = storedPreference("four-strings-practice-input") === "real" ? "real" : "screen";
-let practiceMicStableFrames = 0;
+const practicePitchConfirmation = new PracticePitchConfirmation();
+let practiceMicIgnoreUntil = 0;
 const practiceOnsets = new OnsetDetector(0.018, 220);
 let referenceSpeed = 0.75;
 let referencePlayback: ReferencePlayback | null = null;
@@ -250,6 +252,10 @@ const practiceTarget = byId<HTMLElement>("practice-target");
 const practiceInsight = byId<HTMLElement>("practice-insight");
 const practiceInsightKicker = byId<HTMLElement>("practice-insight-kicker");
 const practiceProgressDetail = byId<HTMLElement>("practice-progress-detail");
+const practiceMicFeedback = byId<HTMLElement>("practice-mic-feedback");
+const practiceMicNote = byId<HTMLElement>("practice-mic-note");
+const practiceMicDetail = byId<HTMLElement>("practice-mic-detail");
+const practiceMicMeter = byId<HTMLElement>("practice-mic-meter");
 const practiceAdjustmentReadout = byId<HTMLElement>("practice-adjustment");
 const practiceTempoReadout = byId<HTMLElement>("practice-tempo");
 const practiceCleanLabel = byId<HTMLElement>("practice-clean-label");
@@ -2035,13 +2041,34 @@ function currentPracticeStage(): PracticeStage {
   return TEN_MINUTE_STAGES[Math.min(practiceStageIndex, TEN_MINUTE_STAGES.length - 1)];
 }
 
+function updatePracticeMicFeedback(
+  note: string,
+  detail: string,
+  progress: number,
+  feedbackState: "waiting" | "matching" | "wrong" | "confirmed",
+): void {
+  const boundedProgress = Math.max(0, Math.min(1, progress));
+  practiceMicFeedback.dataset.state = feedbackState;
+  practiceMicFeedback.style.setProperty("--mic-progress", `${boundedProgress * 100}%`);
+  practiceMicNote.textContent = note;
+  practiceMicDetail.textContent = detail;
+  practiceMicMeter.setAttribute("aria-valuenow", String(Math.round(boundedProgress * 4)));
+  practiceMicMeter.setAttribute("aria-valuetext", detail);
+}
+
+function resetPracticePitchTracking(detail = "Play one clear note"): void {
+  practicePitchConfirmation.reset();
+  practiceMicIgnoreUntil = 0;
+  updatePracticeMicFeedback("—", detail, 0, "waiting");
+}
+
 function setPracticeInput(input: PracticeInput): void {
   if (practiceActive) return;
   stopReferenceAudio();
   if (currentView === "coach" && coachIsActive()) stopCoach("Coaching stopped while the instrument changed.");
   practiceInput = input;
   storePreference("four-strings-practice-input", input);
-  practiceMicStableFrames = 0;
+  resetPracticePitchTracking();
   practiceOnsets.reset();
   practiceStatus.textContent = input === "real"
     ? "Your microphone will start with the session. Play one target at a time."
@@ -2093,35 +2120,59 @@ function handlePracticeMicStatus(status: TunerStatus, message: string): void {
 function handlePracticeMicReading(reading: PitchReading | null, signal: SignalFrame): void {
   if (currentView !== "practice" || practiceInput !== "real" || !practiceActive || practicePaused || practiceComplete) return;
   if (signal.at < practiceReferenceSuppressUntil) {
+    practicePitchConfirmation.reset();
+    updatePracticeMicFeedback("—", "Reference ignored by scoring", 0, "waiting");
     practiceStatus.textContent = "Reference playing — listen now, then copy it when the prompt returns.";
     return;
   }
+  if (signal.at < practiceMicIgnoreUntil) return;
   const stage = currentPracticeStage();
   const onset = practiceOnsets.push(signal.rms, signal.at);
 
   if (stage.targetKind === "strings") {
     const expected = stage.stringTargets![practiceTargetIndex];
     const target = TUNING_TARGETS[expected];
-    const feedback = evaluateCoachPitch(reading, target, 30);
+    const feedback = evaluateCoachPitch(reading, target, 50);
     if (feedback.grade === "correct") {
-      practiceMicStableFrames += 1;
-      practiceStatus.textContent = `Hearing ${target.label} — let it ring steadily.`;
-      if (practiceMicStableFrames >= 10) {
-        practiceMicStableFrames = 0;
+      const confirmation = practicePitchConfirmation.observe("match", signal.at);
+      const pitchDetail = feedback.cents === null
+        ? `${confirmation.matches} of ${confirmation.required} checks`
+        : `${Math.abs(Math.round(feedback.cents))} cents ${feedback.cents < 0 ? "flat" : feedback.cents > 0 ? "sharp" : "centered"} · ${confirmation.matches} of ${confirmation.required}`;
+      updatePracticeMicFeedback(feedback.heardNote, pitchDetail, confirmation.progress, "matching");
+      practiceStatus.textContent = `Heard ${target.label} — confirming this note, no tempo match needed.`;
+      if (confirmation.confirmed) {
+        const targets = stage.stringTargets!;
+        const exerciseComplete = practiceTargetIndex + 1 >= targets.length;
+        const nextTarget = exerciseComplete ? null : TUNING_TARGETS[targets[practiceTargetIndex + 1]];
+        practicePitchConfirmation.reset();
+        practiceMicIgnoreUntil = signal.at + 280;
         recordPracticeAttempt(true, `Microphone check: open ${target.id} heard clearly.`);
-        advancePracticeTarget(stage.stringTargets!.length);
+        advancePracticeTarget(targets.length);
         practiceOnsets.reset();
+        updatePracticeMicFeedback(
+          target.label,
+          exerciseComplete ? "Counted · exercise complete" : `Counted · next ${nextTarget!.label}`,
+          1,
+          "confirmed",
+        );
       }
       return;
     }
 
-    practiceMicStableFrames = 0;
+    const confirmation = practicePitchConfirmation.observe(feedback.grade === "quiet" ? "quiet" : "mismatch", signal.at);
     if (feedback.grade === "wrong-note") {
+      updatePracticeMicFeedback(feedback.heardNote, `Expected ${target.label}`, 0, "wrong");
       practiceStatus.textContent = `Heard ${feedback.heardNote}. The next target is open ${target.label}.`;
     } else if (feedback.grade === "flat" || feedback.grade === "sharp" || feedback.grade === "close") {
+      updatePracticeMicFeedback(feedback.heardNote, `${Math.abs(Math.round(feedback.cents ?? 0))} cents ${feedback.grade}`, 0, "wrong");
       practiceStatus.textContent = `${target.id} is ${feedback.grade}. Tune it closer, or use Tune for a precise adjustment.`;
+    } else if (confirmation.matches > 0) {
+      updatePracticeMicFeedback(target.label, `Keep it ringing · ${confirmation.matches} of ${confirmation.required}`, confirmation.progress, "matching");
     } else if (onset) {
+      updatePracticeMicFeedback("—", `Waiting for ${target.label}`, 0, "waiting");
       practiceStatus.textContent = `Listening for open ${target.label}. Play one string and let it ring.`;
+    } else if (practiceMicFeedback.dataset.state === "matching") {
+      updatePracticeMicFeedback("—", `Waiting for ${target.label}`, 0, "waiting");
     }
     return;
   }
@@ -2173,6 +2224,7 @@ function startPracticeSession(): void {
   practiceMissWindow = 0;
   practiceTempo = 72;
   practiceRhythmAnchor = 0;
+  resetPracticePitchTracking("Waiting for G4");
   practiceAdjustment = "Tempo changes after three correct moves or two misses.";
   state.clearAll();
   window.clearInterval(practiceTimer);
@@ -2227,7 +2279,7 @@ function resetPracticeSession(): void {
   practiceTempo = 72;
   practiceAdjustment = "Tempo changes after three correct moves or two misses.";
   practiceRhythmAnchor = 0;
-  practiceMicStableFrames = 0;
+  resetPracticePitchTracking();
   practiceOnsets.reset();
   practiceClock.value = formatPracticeTime(TEN_MINUTE_SECONDS);
   practiceInsight.textContent = "Begin slowly. The session will find what needs another repetition.";
@@ -2252,6 +2304,7 @@ function updatePracticeTimer(): void {
     practiceTargetIndex = 0;
     practiceStageMastered = false;
     practiceRhythmAnchor = 0;
+    resetPracticePitchTracking();
     practiceAdjustment = "New stage. The working tempo carries forward.";
     practiceStatus.textContent = `${currentPracticeStage().label} begins. Follow the highlighted target.`;
     renderPractice();
@@ -2269,7 +2322,7 @@ function advancePracticeStage(): void {
   practiceTargetIndex = 0;
   practiceStageMastered = false;
   practiceRhythmAnchor = 0;
-  practiceMicStableFrames = 0;
+  resetPracticePitchTracking();
   practiceOnsets.reset();
   practiceAdjustment = "New stage. The working tempo carries forward.";
   state.clearAll();
@@ -2378,13 +2431,13 @@ function recordPracticeAttempt(correct: boolean, message: string): void {
 
 function advancePracticeTarget(targetCount: number): void {
   practiceTargetIndex += 1;
+  practicePitchConfirmation.reset();
   if (practiceTargetIndex < targetCount) {
     renderPractice();
     return;
   }
   practiceTargetIndex = 0;
   practiceStageMastered = true;
-  practiceMicStableFrames = 0;
   practiceOnsets.reset();
   practiceStatus.textContent = `${currentPracticeStage().label} mastered. Move on now, or repeat it until its time window ends.`;
   renderPractice();
@@ -2434,6 +2487,7 @@ function renderPractice(): void {
   const targetCount = practiceTargetCount(stage);
   const completeCount = practiceStageMastered ? targetCount : Math.min(practiceTargetIndex, targetCount);
   practiceProgressDetail.textContent = `${completeCount} of ${targetCount} ${practiceProgressNoun(stage)} complete`;
+  practiceMicFeedback.hidden = !realPractice || !practiceActive || practicePaused || practiceComplete || stage.targetKind !== "strings" || practiceStageMastered;
   practiceAdjustmentReadout.textContent = practiceAdjustment;
   if (currentView === "practice") {
     instrumentFrame.hidden = realPractice;

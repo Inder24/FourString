@@ -379,6 +379,22 @@
               <span class="practice-insight-kicker" id="practice-insight-kicker">Screen feedback</span>
               <strong id="practice-insight">Begin slowly. The session will find what needs another repetition.</strong>
               <p class="practice-progress-detail" id="practice-progress-detail">0 of 8 targets complete</p>
+              <div class="practice-mic-feedback" id="practice-mic-feedback" data-state="waiting" hidden>
+                <div>
+                  <span>Microphone heard</span>
+                  <strong id="practice-mic-note">—</strong>
+                  <small id="practice-mic-detail">Play one clear note</small>
+                </div>
+                <span
+                  class="practice-mic-meter"
+                  id="practice-mic-meter"
+                  role="progressbar"
+                  aria-label="Note confirmation"
+                  aria-valuemin="0"
+                  aria-valuemax="4"
+                  aria-valuenow="0"
+                ><i></i></span>
+              </div>
               <dl>
                 <div><dt>Working tempo</dt><dd id="practice-tempo">72 BPM</dd></div>
                 <div><dt id="practice-clean-label">Correct moves</dt><dd id="practice-clean">0</dd></div>

@@ -2757,6 +2757,82 @@ input[type="range"]:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+.practice-mic-feedback {
+  --mic-progress: 0%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 74px;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--control-inset);
+}
+
+.practice-mic-feedback[hidden] {
+  display: none;
+}
+
+.practice-mic-feedback > div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: 2px 8px;
+}
+
+.practice-mic-feedback span,
+.practice-mic-feedback small {
+  color: var(--ink-tertiary);
+  font-size: 8px;
+  line-height: 1.3;
+}
+
+.practice-mic-feedback > div > span {
+  grid-column: 1 / -1;
+  font-weight: 760;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.practice-mic-feedback strong {
+  color: var(--ink);
+  font-family: "Fraunces Variable", serif;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.practice-mic-feedback[data-state="matching"] strong,
+.practice-mic-feedback[data-state="confirmed"] strong {
+  color: var(--success);
+}
+
+.practice-mic-feedback[data-state="wrong"] strong {
+  color: var(--plucked-coral);
+}
+
+.practice-mic-meter {
+  position: relative;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(58, 37, 34, 0.1);
+}
+
+.practice-mic-meter i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--mic-progress);
+  border-radius: inherit;
+  background: var(--plucked-coral);
+  transition: width 120ms ease;
+}
+
+.practice-mic-feedback[data-state="confirmed"] .practice-mic-meter i {
+  background: var(--success);
+}
+
 .practice-adjustment {
   min-height: 28px;
   margin-top: 0;

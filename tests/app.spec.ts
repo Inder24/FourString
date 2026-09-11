@@ -135,14 +135,20 @@ test("starts practice in one click without redirecting to the tuner", async ({ p
   await expect(page.locator("#practice-status")).toContainText("Session started");
 });
 
-test("starts real-ukulele practice through the microphone without loading screen samples", async ({ page }) => {
+test("counts lesson-one notes through realistic microphone detection gaps", async ({ page }) => {
   await page.route("**/audio/**", (route) => route.abort());
   await page.addInitScript(() => {
     const sampleRate = 48_000;
     class FakeAnalyser {
       fftSize = 4096;
       smoothingTimeConstant = 0;
+      frame = 0;
       getFloatTimeDomainData(buffer: Float32Array) {
+        this.frame += 1;
+        if (this.frame % 2 === 0) {
+          buffer.fill(0);
+          return;
+        }
         for (let index = 0; index < buffer.length; index += 1) {
           buffer[index] = Math.sin((2 * Math.PI * 391.995 * index) / sampleRate) * 0.4;
         }
@@ -182,6 +188,10 @@ test("starts real-ukulele practice through the microphone without loading screen
   await expect(page.locator("#practice-stage-copy")).toContainText("microphone listens");
   await expect(page.locator("#practice-clean-label")).toHaveText("Heard moves");
   await expect(page.locator("#practice-target")).toContainText("3 · C");
+  await expect(page.locator("#practice-progress-detail")).toHaveText("1 of 8 strings complete");
+  await expect(page.locator("#practice-mic-feedback")).toHaveAttribute("data-state", "confirmed");
+  await expect(page.locator("#practice-mic-note")).toHaveText("G4");
+  await expect(page.locator("#practice-mic-detail")).toContainText("next C4");
 });
 
 test("keeps real-ukulele practice idle when microphone access is denied", async ({ page }) => {
@@ -312,6 +322,7 @@ test("teaches the exact Sa Re Ga Ma fingerpicking ascent", async ({ page }) => {
   await expect(page.locator('.fret-cell[data-string="1"][data-fret="0"]')).toHaveClass(/is-learning-target/);
 
   await page.getByRole("button", { name: "Start practice", exact: true }).click();
+  await expect(page.locator("#lesson-cue")).toHaveAttribute("data-state", "practice");
   await page.keyboard.press("Digit3");
   await expect(page.locator("#lesson-cue-frets")).toContainText("3,2 · D4");
   await page.locator('.fret-cell[data-string="1"][data-fret="2"]').click();
