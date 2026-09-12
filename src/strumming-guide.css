@@ -1,0 +1,46 @@
+.ai-strumming-guide { margin-top: 24px; min-width: 0; scroll-margin-top: 20px; }
+.ai-guide-heading, .ai-guide-caption { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 12px; }
+.ai-guide-heading > span:first-child { font-weight: 750; }
+.ai-guide-correction { display: none; }
+.ai-guide-heading small, .ai-guide-heading > span:last-child { color: #c7b7a7; font-size: 11px; font-variant-numeric: tabular-nums; }
+.ai-strumming-guide .ai-guide-uke { display: block; width: 100%; height: auto; max-height: 256px; overflow: visible; stroke: none; }
+.ai-guide-body { fill: url(#ai-koa-grain); stroke: var(--binding); stroke-width: 5px; }
+.ai-guide-string-name { fill: var(--binding); font-size: 16px; font-weight: 750; text-anchor: middle; }
+.ai-guide-string { stroke: #dac9af; stroke-width: 1.5; }
+.ai-guide-string.is-plucked { stroke: #ffae96; stroke-width: 3.5; }
+.ai-guide-hand { opacity: .95; }
+.ai-strumming-guide[data-silent="true"] .ai-guide-hand { opacity: .42; }
+.ai-guide-caption { min-height: 32px; }
+.ai-guide-caption strong { color: var(--plucked-coral-soft); font-size: 12px; }
+.ai-guide-caption > span { color: #c7b7a7; font-size: 10px; }
+.ai-guide-cue { margin: 8px 0 4px; color: var(--binding); font-size: 12px; line-height: 1.5; }
+.ai-guide-scope { color: #c7b7a7; font-size: 10px; line-height: 1.5; display: block; }
+.ai-strumming-guide + .ai-timing-string { margin-top: 20px; }
+.ai-slot.is-rest strong { -webkit-text-stroke: 1px #c0ad98; color: transparent; }
+.ai-slot.is-rest.is-current strong { -webkit-text-stroke-color: var(--plucked-coral-soft); }
+.ai-heard-lane { position: relative; height: 26px; margin: 0 0 2px; border-top: 1px solid #796152; }
+.ai-rail { position: relative; }
+.ai-rail .ai-playhead { left: var(--ai-play-progress); top: 20px; bottom: 26px; }
+.ai-heard-lane::after { content: "HEARD · raw attacks, latency adjusted after take"; position: absolute; top: 12px; left: 0; color: #c7b7a7; font-size: 8px; letter-spacing: .04em; }
+.ai-heard-marker { position: absolute; top: -4px; width: 7px; height: 7px; border-radius: 50%; background: #a9d0b1; transform: translateX(-50%); }
+.ai-visual-legend { margin: 4px 0 0; color: #c7b7a7; font-size: 10px; }
+.ai-inline-action + .ai-inline-action { margin-top: 8px; }
+#ai-watch-focus[hidden] { display: none; }
+@media (max-width: 1100px) {
+  .ai-guide-correction:not([hidden]) { display: grid; gap: 6px; margin-bottom: 20px; padding: 12px; background: rgba(239, 224, 190, .08); border-radius: 8px; }
+  .ai-guide-correction span { font-size: 10px; color: var(--plucked-coral-soft); }
+  .ai-guide-correction strong { font-size: 12px; line-height: 1.5; font-weight: 650; }
+}
+@media (max-width: 600px) {
+  .ai-guide-heading, .ai-guide-caption { gap: 8px; }
+  .ai-guide-caption { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .ai-guide-uke { margin: 12px 0; }
+  .ai-guide-string-name { font-size: 22px; }
+  .ai-guide-scope { font-size: 10px; }
+  .ai-heard-lane::after { font-size: 7px; letter-spacing: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-guide-hand, .ai-playhead, .ai-slot { transition: none !important; }
+  .ai-timing-string.is-running .ai-playhead { opacity: 0; }
+  .ai-slot.is-current { transform: none; }
+}

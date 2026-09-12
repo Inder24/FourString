@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { completeCalibration, captureStrums } from './helpers/ai-fixture';
 
 async function enableAudio(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Play on screen", exact: true }).click();
@@ -77,9 +78,9 @@ test("labels all four strings on the neck and body", async ({ page }) => {
   await expect(page.locator(".string-identity small")).toHaveText(["4", "3", "2", "1"]);
 });
 
-test("groups the product into four primary destinations", async ({ page }) => {
+test("groups the product into four primary destinations with drills under Practice", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator(".mode-switch .mode-button")).toHaveText(["Play", "Practice", "Coach", "Tune"]);
+  await expect(page.locator(".mode-switch .mode-button")).toHaveText(["Play", "Practice", "AI Coach", "Tune"]);
   await expect(page.locator("#play-subnav")).toBeVisible();
   await expect(page.locator("#practice-subnav")).toBeHidden();
 
@@ -87,7 +88,8 @@ test("groups the product into four primary destinations", async ({ page }) => {
   await expect(page.locator("#practice-subnav")).toBeVisible();
   await expect(page.getByRole("button", { name: "10-minute session", exact: true })).toHaveAttribute("aria-pressed", "true");
 
-  await page.getByRole("button", { name: "Coach", exact: true }).click();
+  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  await page.getByRole("button", { name: "Quick drills", exact: true }).click();
   await expect(page.locator("#coach-workbench")).toBeVisible();
   await expect(page.locator("#play-subnav")).toBeHidden();
 });
@@ -202,6 +204,7 @@ test("keeps real-ukulele practice idle when microphone access is denied", async 
     });
   });
   await page.goto("/");
+  await enableAudio(page);
   await page.getByRole("button", { name: "Practice", exact: true }).click();
   await page.getByRole("button", { name: "My ukulele", exact: true }).click();
   await page.getByRole("button", { name: "Start session", exact: true }).click();
@@ -287,7 +290,7 @@ test("switches between the searchable lesson library and each course's chapter s
   await page.getByRole("button", { name: "Practice", exact: true }).click();
   await page.getByRole("button", { name: "Songs", exact: true }).click();
   await expect(page.locator("#lesson-song-title")).toHaveText("Lathe Di Chadar");
-  await expect(page.locator(".song-result")).toHaveCount(4);
+  await expect(page.locator(".song-result")).toHaveCount(6);
   await expect(page.locator(".chapter-tab strong")).toHaveText(["Folk pulse", "Folk picking", "Wedding strum"]);
   await expect(page.locator(".lesson-line")).toHaveCount(4);
   await expect(page.locator(".lesson-native").first()).toContainText("ਲੱਠੇ");
@@ -357,6 +360,34 @@ test("adds Twinkle melody, quick transition, beginner strum, and backing chapter
   await page.locator("#lesson-hear-bar").click();
 });
 
+test("adds playable Yellow and I’m Yours three-chapter studies", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  await page.getByRole("button", { name: "Songs", exact: true }).click();
+
+  await page.locator('.song-result[data-song-id="yellow"]').click();
+  await expect(page.locator("#lesson-song-title")).toHaveText("Yellow");
+  await expect(page.locator("#lesson-rights")).toContainText("Lyric-free accompaniment study in C");
+  await expect(page.locator("#lesson-rights")).toContainText("not the original recording or melody");
+  await expect(page.locator(".chapter-tab strong")).toHaveText(["Verse pulse", "Starry picking", "Island glow"]);
+  await expect(page.locator(".lesson-chord strong")).toHaveText(["C", "G", "F", "F", "Am", "G"]);
+  await page.locator('.chapter-tab[data-chapter="3"]').click();
+  await expect(page.locator("#lesson-pattern")).toHaveText("D · D-U · U");
+  await expect(page.locator("#lesson-tempo")).toContainText("87 BPM");
+
+  await page.locator('.song-result[data-song-id="im-yours"]').click();
+  await expect(page.locator("#lesson-song-title")).toHaveText("I’m Yours");
+  await expect(page.locator(".chapter-tab strong")).toHaveText(["Four-chord loop", "Sunny picking", "Island strum"]);
+  await expect(page.locator(".lesson-chord strong")).toHaveText(["C", "G", "Am", "F"]);
+  await page.locator('.chapter-tab[data-chapter="3"]').click();
+  await expect(page.locator("#lesson-pattern")).toHaveText("D · D-U · U");
+
+  await page.getByRole("button", { name: "Hear 4-line demo", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Stop demo", exact: true })).toBeEnabled();
+  await expect(page.locator("#lesson-cue")).toHaveAttribute("data-state", "demo");
+  await page.getByRole("button", { name: "Stop demo", exact: true }).click();
+});
+
 test("records, saves, replays, and clears an on-screen lesson take", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Practice", exact: true }).click();
@@ -381,6 +412,7 @@ test("loads sound automatically when a song demo or lesson starts", async ({ pag
   await page.goto("/");
   await page.getByRole("button", { name: "Practice", exact: true }).click();
   await page.getByRole("button", { name: "Songs", exact: true }).click();
+  await page.locator('.song-result[data-song-id="yellow"]').click();
 
   await page.getByRole("button", { name: "Hear 4-line demo", exact: true }).click();
   await expect(page.locator("body")).toHaveAttribute("data-app-view", "chapters");
@@ -398,11 +430,12 @@ test("advances a guided song only after the full rhythm gesture", async ({ page 
   await enableAudio(page);
   await page.getByRole("button", { name: "Practice", exact: true }).click();
   await page.getByRole("button", { name: "Songs", exact: true }).click();
+  await page.locator('.song-result[data-song-id="yellow"]').click();
   await page.getByRole("button", { name: "Start practice" }).click();
   await page.locator('.fret-cell[data-string="3"][data-fret="3"]').click();
   for (let beat = 0; beat < 4; beat += 1) await page.locator("#strum-surface").click();
-  await expect(page.locator(".lesson-chord.is-expected")).toContainText("Am");
-  await expect(page.locator("#lesson-status")).toContainText("Change to Am");
+  await expect(page.locator(".lesson-line.is-current")).toContainText("Verse B");
+  await expect(page.locator("#lesson-status")).toContainText("Part 2 starts on G");
 });
 
 test("keeps a visible now-and-next cue through song demo and guided practice", async ({ page }) => {
@@ -411,6 +444,7 @@ test("keeps a visible now-and-next cue through song demo and guided practice", a
   await enableAudio(page);
   await page.getByRole("button", { name: "Practice", exact: true }).click();
   await page.getByRole("button", { name: "Songs", exact: true }).click();
+  await page.locator('.song-result[data-song-id="yellow"]').click();
 
   await expect(page.locator("#lesson-cue")).toBeInViewport();
   await expect(page.locator("#lesson-cue-chord")).toHaveText("C");
@@ -419,10 +453,13 @@ test("keeps a visible now-and-next cue through song demo and guided practice", a
 
   await page.getByRole("button", { name: "Hear 4-line demo" }).click();
   await expect(page.locator("#lesson-cue")).toHaveAttribute("data-state", "demo");
+  await expect(page.locator(".lesson-line.is-current")).toHaveCount(0);
+  await expect(page.locator(".lesson-line.is-demo")).toHaveCount(1);
   await expect(page.locator("#lesson-cue-mode")).toContainText("follow along");
   await expect(page.locator(".lesson-gesture-step.is-current")).toHaveCount(1);
   await expect(page.locator("#lesson-cue")).toBeInViewport();
   await page.getByRole("button", { name: "Stop demo" }).click();
+  await expect(page.locator(".lesson-line.is-current")).toHaveCount(1);
 
   await page.getByRole("button", { name: "Start practice" }).click();
   await expect(page.locator("#lesson-cue")).toHaveAttribute("data-state", "practice");
@@ -460,6 +497,7 @@ test("previews song chord and bar without advancing the learner", async ({ page 
   await page.goto("/");
   await page.getByRole("button", { name: "Practice", exact: true }).click();
   await page.getByRole("button", { name: "Songs", exact: true }).click();
+  await page.locator('.song-result[data-song-id="yellow"]').click();
 
   await expect(page.locator("#lesson-layer-target")).toHaveText("C chord · ↓");
   await expect(page.locator("#lesson-layer-notes")).toContainText("G4 · C4 · E4 · C5");
@@ -475,9 +513,51 @@ test("previews song chord and bar without advancing the learner", async ({ page 
   await page.locator("#lesson-hear-bar").click();
 });
 
+test("labels unverified songs and offers both verified-song input modes", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  await page.getByRole("button", { name: "Songs", exact: true }).click();
+  await expect(page.locator("#lesson-rights")).toContainText("Unverified arrangement");
+  await expect(page.locator('.song-result[data-song-id="lathe-di-chadar"] .song-result-rights')).toHaveText("Unverified");
+  await expect(page.locator("#lesson-demo")).toBeDisabled();
+  await expect(page.locator("#lesson-practice")).toBeDisabled();
+
+  await page.locator('.song-result[data-song-id="twinkle-twinkle"]').click();
+  await page.getByRole("button", { name: "Real ukulele", exact: true }).click();
+  await expect(page.locator("#lesson-workbench")).toHaveAttribute("data-input", "real");
+  await expect(page.locator("#lesson-input-note")).toContainText("cannot identify the exact ukulele string");
+  await expect(page.getByRole("button", { name: "Record take", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "On-screen ukulele", exact: true }).click();
+  await expect(page.locator("#lesson-workbench")).toHaveAttribute("data-input", "screen");
+  await expect(page.getByRole("button", { name: "Start practice", exact: true })).toBeEnabled();
+});
+
+test("ignores hidden on-screen keyboard gestures in real song mode", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: { getUserMedia: () => new Promise(() => {}) },
+    });
+  });
+  await page.goto("/");
+  await enableAudio(page);
+  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  await page.getByRole("button", { name: "Songs", exact: true }).click();
+  await page.locator('.song-result[data-song-id="twinkle-twinkle"]').click();
+  await page.getByRole("button", { name: "Real ukulele", exact: true }).click();
+  await page.getByRole("button", { name: "Start practice", exact: true }).click();
+  await expect(page.locator("#lesson-cue-frets")).toContainText("3,0 · C4");
+  const readoutBefore = await page.locator("#last-note").textContent();
+  await page.keyboard.press("Digit3");
+  await page.keyboard.press("Digit3");
+  await expect(page.locator("#lesson-cue-frets")).toContainText("3,0 · C4");
+  await expect(page.locator("#last-note")).toHaveText(readoutBefore ?? "");
+});
+
 test("plays an unscored coach reference before the learner responds", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Coach", exact: true }).click();
+  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  await page.getByRole("button", { name: "Quick drills", exact: true }).click();
   await expect(page.locator("#coach-layer-target")).toHaveText("Open G4");
 
   await page.locator("#coach-hear-target").click();
@@ -640,7 +720,8 @@ test("offers real-time string and pulse coaching with retryable microphone acces
     });
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Coach" }).click();
+  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  await page.getByRole("button", { name: "Quick drills", exact: true }).click();
   await page.getByRole("button", { name: "My ukulele", exact: true }).click();
   await expect(page.locator("#coach-goal")).toHaveText("Play G4");
   await page.getByRole("button", { name: "Steady pulse" }).click();
@@ -685,7 +766,8 @@ test("advances the coach after a stable open-string note", async ({ page }) => {
     });
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Coach" }).click();
+  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  await page.getByRole("button", { name: "Quick drills", exact: true }).click();
   await page.getByRole("button", { name: "My ukulele", exact: true }).click();
   await page.getByRole("button", { name: "Start coaching" }).click();
   await expect(page.locator("#coach-goal")).toHaveText("Play C4");
@@ -700,7 +782,8 @@ test("uses one top instrument switch across Practice and Coach", async ({ page }
   await expect(page.locator("#instrument-source-title")).toHaveText("Practice with");
   await page.getByRole("button", { name: "My ukulele", exact: true }).click();
 
-  await page.getByRole("button", { name: "Coach", exact: true }).click();
+  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  await page.getByRole("button", { name: "Quick drills", exact: true }).click();
   await expect(page.locator("#instrument-source-title")).toHaveText("Coach with");
   await expect(page.getByRole("button", { name: "My ukulele", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#instrument-frame")).toBeHidden();
@@ -713,13 +796,15 @@ test("uses one top instrument switch across Practice and Coach", async ({ page }
 
 test("coaches on-screen strings and pulse without microphone access", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Coach", exact: true }).click();
+  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  await page.getByRole("button", { name: "Quick drills", exact: true }).click();
   await page.getByRole("button", { name: "Start coaching", exact: true }).click();
   await expect(page.locator("body")).toHaveAttribute("data-audio-ready", "true", { timeout: 15_000 });
   await expect(page.locator('.fret-cell[data-string="0"][data-fret="0"]')).toHaveClass(/is-coach-target/);
   await page.keyboard.press("Digit4");
   await expect(page.locator("#coach-goal")).toHaveText("Play C4");
   await expect(page.locator('.fret-cell[data-string="1"][data-fret="0"]')).toHaveClass(/is-coach-target/);
+  await expect(page.locator("#coach-acceptance")).toContainText("G accepted ✓ — play C next");
 
   await page.getByRole("button", { name: "Stop coaching", exact: true }).click();
   await page.getByRole("button", { name: "Steady pulse" }).click();
@@ -872,4 +957,153 @@ test("renders a decoded sample through an OfflineAudioContext", async ({ page })
   });
   expect(peak).toBeGreaterThan(0.01);
   expect(peak).toBeLessThanOrEqual(1);
+});
+
+test("shows all AI Coach patterns and a clear API setup state", async ({ page }) => {
+  await page.route("**/api/adaptive-coach/status", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ configured: false }),
+  }));
+  await page.goto("/");
+  await page.getByRole("button", { name: "AI Coach", exact: true }).click();
+
+  await expect(page.locator("#ai-coach-workbench")).toBeVisible();
+  await expect(page.locator(".ai-pattern strong")).toHaveText(["Steady downs", "Alternating pulse", "Island rhythm"]);
+  await expect(page.locator("#ai-connection")).toContainText("API key needed");
+  await expect(page.getByRole("button", { name: "Start first take", exact: true })).toBeDisabled();
+  await expect(page.locator("#ai-stage-copy")).toContainText("OPENAI_API_KEY");
+
+  await page.locator('[data-ai-pattern="alternating-pulse"]').click();
+  await expect(page.locator('[data-ai-pattern="alternating-pulse"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#ai-stage-title")).toHaveText("Alternating pulse");
+  await expect(page.locator("#ai-slots .ai-slot")).toHaveCount(8);
+});
+
+test("runs the Astra correction, cancelable retry, and before-after loop", async ({ page }) => {
+  let sentSummary = "";
+  await page.route("**/api/adaptive-coach/status", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ configured: true }),
+  }));
+  await page.route("**/api/adaptive-coach", async (route) => {
+    sentSummary = route.request().postData() ?? "";
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        decision: {
+          issue: "missed_hits",
+          correction: "Keep your hand moving and place the second stroke on beat two.",
+          evidence: "The middle pair had the largest timing gap.",
+          focusStartSlot: 0,
+          focusEndSlot: 2,
+          retryBpm: 60,
+          repetitions: 3,
+          visualCue: "follow-pulse",
+        },
+      }),
+    });
+  });
+  await page.addInitScript(() => {
+    class FakeParam {
+      value = 1;
+      cancelScheduledValues() {}
+      setTargetAtTime(value: number) { this.value = value; }
+      setValueAtTime(value: number) { this.value = value; }
+      exponentialRampToValueAtTime(value: number) { this.value = value; }
+    }
+    class FakeNode extends EventTarget {
+      gain = new FakeParam();
+      threshold = new FakeParam();
+      knee = new FakeParam();
+      ratio = new FakeParam();
+      attack = new FakeParam();
+      release = new FakeParam();
+      frequency = new FakeParam();
+      type = "sine";
+      buffer: AudioBuffer | null = null;
+      playbackRate = new FakeParam();
+      connect<T>(destination: T): T { return destination; }
+      disconnect() {}
+      start() {}
+      stop() { this.dispatchEvent(new Event("ended")); }
+    }
+    class FakeAnalyser {
+      fftSize = 4096;
+      smoothingTimeConstant = 0;
+      getFloatTimeDomainData(buffer: Float32Array) { buffer.fill((window as any).teachingFixture.rms); }
+    }
+    class FakeAudioContext {
+      state = "running";
+      sampleRate = 48_000;
+      get currentTime() { return performance.now() / 1000; }
+      destination = new FakeNode();
+      createGain() { return new FakeNode(); }
+      createDynamicsCompressor() { return new FakeNode(); }
+      createBufferSource() { return new FakeNode(); }
+      createOscillator() { return new FakeNode(); }
+      createMediaStreamSource() { return new FakeNode(); }
+      createAnalyser() { return new FakeAnalyser(); }
+      async decodeAudioData() { return {} as AudioBuffer; }
+      async resume() {}
+      async close() {}
+    }
+    class FakeMediaRecorder extends EventTarget {
+      static isTypeSupported() { return true; }
+      state: RecordingState = "inactive";
+      mimeType: string;
+      constructor(_stream: MediaStream, options?: MediaRecorderOptions) {
+        super();
+        this.mimeType = options?.mimeType ?? "audio/webm";
+      }
+      start() { this.state = "recording"; }
+      stop() {
+        this.state = "inactive";
+        this.dispatchEvent(new BlobEvent("dataavailable", { data: new Blob(["take"], { type: this.mimeType }) }));
+        this.dispatchEvent(new Event("stop"));
+      }
+    }
+    Object.defineProperty(window, "AudioContext", { configurable: true, value: FakeAudioContext });
+    Object.defineProperty(window, "MediaRecorder", { configurable: true, value: FakeMediaRecorder });
+    (window as any).teachingFixture = { rms: .001 };
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) },
+    });
+  });
+  await page.clock.install();
+  await page.goto("/");
+  await page.getByRole("button", { name: "AI Coach", exact: true }).click();
+  await expect(page.locator("#ai-connection")).toContainText("API key configured");
+  await page.getByRole("button", { name: "Start first take", exact: true }).click();
+  await completeCalibration(page);
+  await expect(page.locator("body")).toHaveAttribute("data-audio-ready", "true");
+  await page.clock.runFor(5000);
+  await expect(page.locator("#ai-coach-workbench")).toHaveAttribute("data-phase", "count-in");
+  await expect(page.locator("#ai-live-status")).toHaveText("Count-in · 4");
+
+  await page.clock.runFor(3_600);
+  await expect(page.locator("#ai-coach-workbench")).toHaveAttribute("data-phase", "recording");
+  await captureStrums(page, 8, 800);
+  await page.clock.runFor(1100);
+  await expect(page.locator("#ai-coach-workbench")).toHaveAttribute("data-phase", "retry-count-in");
+  expect(sentSummary).not.toContain("blob:");
+  expect(sentSummary).not.toContain("take");
+  await expect(page.locator("#ai-correction")).toContainText("Keep your hand moving");
+
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  await expect(page.locator("#ai-coach-workbench")).toHaveAttribute("data-phase", "correction");
+  await page.getByRole("button", { name: "Start focused retry", exact: true }).click();
+  await page.clock.runFor(5000);
+  await page.clock.runFor(4_100);
+  await expect(page.locator("#ai-coach-workbench")).toHaveAttribute("data-phase", "recording");
+  await captureStrums(page, 6, 900);
+  await page.clock.runFor(1100);
+  await expect(page.locator("#ai-coach-workbench")).toHaveAttribute("data-phase", "comparison");
+  await expect(page.locator("#ai-before-error")).toContainText("ms");
+  await expect(page.locator("#ai-after-error")).toContainText("ms");
+  await expect(page.getByRole("button", { name: "Hear first take", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Hear new take", exact: true })).toBeEnabled();
 });

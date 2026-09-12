@@ -1,4 +1,5 @@
 import { clamp, type StrumDirection } from "./music";
+import { STRING_CROSSING_MS } from "./strumming-motion";
 
 export interface SampleRegion {
   url: string;
@@ -27,6 +28,7 @@ export const SAMPLE_REGIONS: readonly SampleRegion[] = [
 interface ActiveVoice {
   source: AudioBufferSourceNode;
   gain: GainNode;
+  velocity: number;
 }
 
 export function findSampleRegion(midi: number): SampleRegion {
@@ -52,11 +54,23 @@ export class AudioEngine {
   private limiter: DynamicsCompressorNode | null = null;
   private readonly buffers = new Map<string, AudioBuffer>();
   private readonly activeVoices = new Map<number, ActiveVoice>();
+  private readonly scheduledVoices = new Set<ActiveVoice>();
   private volume = 0.72;
   private muted = false;
 
   get isReady(): boolean {
     return this.context?.state === "running" && this.buffers.size === SAMPLE_REGIONS.length;
+  }
+
+  get currentTime(): number { return this.context?.currentTime ?? 0; }
+
+  /** Output clock keeps the teaching hand aligned with sound reaching the speaker. */
+  get presentationTime(): number {
+    const stamp = this.context?.getOutputTimestamp?.();
+    if (stamp?.contextTime && stamp.performanceTime) {
+      return stamp.contextTime + (performance.now() - stamp.performanceTime) / 1000;
+    }
+    return this.currentTime;
   }
 
   async initialize(): Promise<void> {
@@ -109,12 +123,37 @@ export class AudioEngine {
   }
 
   strum(midis: readonly number[], direction: StrumDirection, velocity = 0.72): void {
+    this.scheduleStrum(midis, direction, velocity, this.currentTime);
+  }
+
+  scheduleStrum(midis: readonly number[], direction: StrumDirection, velocity: number, startAt: number): void {
+    if (!this.isReady) return;
     const indices = direction === "down" ? [0, 1, 2, 3] : [3, 2, 1, 0];
     indices.forEach((stringIndex, order) => {
       const midi = midis[stringIndex];
       if (typeof midi === "number") {
-        this.pluckString(stringIndex, midi, velocity, order * 0.024);
+        this.startVoice(stringIndex, midi, velocity, startAt + order * STRING_CROSSING_MS / 1000);
       }
+    });
+  }
+
+  playMetronomeClick(accent = false): void {
+    if (!this.context || !this.master || this.context.state !== "running") return;
+    const now = this.context.currentTime;
+    const oscillator = this.context.createOscillator();
+    const clickGain = this.context.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(accent ? 1280 : 920, now);
+    oscillator.frequency.exponentialRampToValueAtTime(accent ? 760 : 620, now + 0.035);
+    clickGain.gain.setValueAtTime(0.0001, now);
+    clickGain.gain.exponentialRampToValueAtTime(accent ? 0.16 : 0.1, now + 0.002);
+    clickGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.055);
+    oscillator.connect(clickGain).connect(this.master);
+    oscillator.start(now);
+    oscillator.stop(now + 0.06);
+    oscillator.addEventListener("ended", () => {
+      oscillator.disconnect();
+      clickGain.disconnect();
     });
   }
 
@@ -128,10 +167,11 @@ export class AudioEngine {
     const now = this.context.currentTime;
     const previous = this.activeVoices.get(stringIndex);
     if (previous) {
-      previous.gain.gain.cancelScheduledValues(now);
-      previous.gain.gain.setValueAtTime(Math.max(previous.gain.gain.value, 0.0001), now);
-      previous.gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.022);
-      previous.source.stop(now + 0.026);
+      const replaceAt = Math.max(now, startAt);
+      previous.gain.gain.cancelScheduledValues(replaceAt);
+      previous.gain.gain.setValueAtTime(previous.velocity, replaceAt);
+      previous.gain.gain.exponentialRampToValueAtTime(0.0001, replaceAt + 0.022);
+      previous.source.stop(replaceAt + 0.026);
     }
 
     const source = this.context.createBufferSource();
@@ -143,12 +183,14 @@ export class AudioEngine {
     source.connect(voiceGain).connect(this.master);
     source.start(startAt);
 
-    const voice = { source, gain: voiceGain };
+    const voice = { source, gain: voiceGain, velocity: normalizeVelocity(velocity) };
     this.activeVoices.set(stringIndex, voice);
+    this.scheduledVoices.add(voice);
     source.addEventListener("ended", () => {
       if (this.activeVoices.get(stringIndex) === voice) {
         this.activeVoices.delete(stringIndex);
       }
+      this.scheduledVoices.delete(voice);
       source.disconnect();
       voiceGain.disconnect();
     });
@@ -168,7 +210,7 @@ export class AudioEngine {
     if (!this.context) return;
     const now = this.context.currentTime;
     const fade = Math.max(0.008, fadeSeconds);
-    for (const voice of this.activeVoices.values()) {
+    for (const voice of this.scheduledVoices) {
       voice.gain.gain.cancelScheduledValues(now);
       voice.gain.gain.setValueAtTime(Math.max(voice.gain.gain.value, 0.0001), now);
       voice.gain.gain.exponentialRampToValueAtTime(0.0001, now + fade);
@@ -179,6 +221,7 @@ export class AudioEngine {
       }
     }
     this.activeVoices.clear();
+    this.scheduledVoices.clear();
   }
 
   dispose(): void {

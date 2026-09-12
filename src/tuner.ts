@@ -9,6 +9,7 @@ export interface PitchReading {
 export interface SignalFrame {
   rms: number;
   at: number;
+  clippedFraction?: number;
 }
 
 export interface TuningTarget {
@@ -63,7 +64,7 @@ export function detectPitch(
   samples: Float32Array,
   sampleRate: number,
   minFrequency = 180,
-  maxFrequency = 520,
+  maxFrequency = 950,
 ): PitchReading | null {
   if (samples.length < 256 || sampleRate <= 0) return null;
 
@@ -135,9 +136,14 @@ export class TunerEngine {
   private frame = 0;
   private frequencies: number[] = [];
   private lastDetectedAt = 0;
+  private generation = 0;
 
   get isListening(): boolean {
     return this.stream !== null;
+  }
+
+  get mediaStream(): MediaStream | null {
+    return this.stream;
   }
 
   async start(
@@ -145,6 +151,7 @@ export class TunerEngine {
     onStatus: (status: TunerStatus, message: string) => void,
   ): Promise<void> {
     if (this.isListening) return;
+    const generation = ++this.generation;
     if (!navigator.mediaDevices?.getUserMedia) {
       onStatus("error", "Microphone tuning needs a secure browser context.");
       return;
@@ -152,7 +159,7 @@ export class TunerEngine {
 
     onStatus("requesting", "Waiting for microphone permission…");
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: false,
           noiseSuppression: false,
@@ -160,8 +167,14 @@ export class TunerEngine {
           channelCount: 1,
         },
       });
+      if (generation !== this.generation) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      this.stream = stream;
       this.context = new AudioContext({ latencyHint: "interactive" });
       if (this.context.state === "suspended") await this.context.resume();
+      if (generation !== this.generation) return;
       this.source = this.context.createMediaStreamSource(this.stream);
       this.analyser = this.context.createAnalyser();
       this.analyser.fftSize = 4096;
@@ -170,6 +183,7 @@ export class TunerEngine {
       onStatus("listening", "Listening — play one string and let it ring.");
       this.read(onReading);
     } catch (error) {
+      if (generation !== this.generation) return;
       this.stop();
       const denied = error instanceof DOMException && error.name === "NotAllowedError";
       onStatus(
@@ -182,6 +196,7 @@ export class TunerEngine {
   }
 
   stop(): void {
+    this.generation += 1;
     cancelAnimationFrame(this.frame);
     this.frame = 0;
     this.source?.disconnect();
@@ -200,7 +215,9 @@ export class TunerEngine {
     const samples = new Float32Array(this.analyser.fftSize);
     this.analyser.getFloatTimeDomainData(samples);
     const reading = detectPitch(samples, this.context.sampleRate);
-    const signal = { rms: signalRms(samples), at: performance.now() };
+    let clipped = 0;
+    for (const sample of samples) if (Math.abs(sample) >= .98) clipped++;
+    const signal = { rms: signalRms(samples), at: performance.now(), clippedFraction: clipped / samples.length };
     if (reading) {
       if (signal.at - this.lastDetectedAt > 750) this.frequencies = [];
       this.lastDetectedAt = signal.at;

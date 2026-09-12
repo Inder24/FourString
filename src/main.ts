@@ -1,23 +1,30 @@
 import "@fontsource-variable/manrope";
 import "@fontsource-variable/fraunces/wght.css";
 import "./style.css";
+import "./lesson-trust.css";
 
+import { AdaptiveCoachController } from "./adaptive-coach-controller";
 import { AudioEngine } from "./audio";
-import { evaluateCoachPitch, gradeRhythmHit, OnsetDetector, type CoachPitchGrade } from "./coach";
+import { evaluateCoachPitch, gradeRhythmHit, OnsetDetector, NoteConfirmation, PulseDrill, type CoachPitchGrade } from "./coach";
 import { chordFretLabel, chordHint, chordNoteNames, gestureHint, stringHint } from "./guidance";
 import {
   chordMidiNotes,
-  filterLessonSongs,
+  canPracticeLessonSong,
   isMelodyChapter,
   LESSON_CHORDS,
   LESSON_SONGS,
+  lessonBackingChordEvents,
   lessonLineBeats,
   lessonLineEvents,
+  lessonPlaybackEvents,
   matchesChord,
   type ChordName,
   type LessonGesture,
   type LessonPhase,
 } from "./lesson";
+import { RealMelodyConfirmation, RealStrumCounter } from "./song-input";
+import { filterLessonLibrary, lessonTrust, safeLessonSourceUrl, type LessonLibraryFilters } from "./lesson-trust";
+import { downloadLessonPracticeScore, trustLabel } from "./lesson-trust-ui";
 import {
   appendFingerpickStep,
   FRET_COUNT,
@@ -45,10 +52,11 @@ import {
 import { createSavedTake, MAX_TAKE_DURATION_MS, MAX_TAKE_EVENTS, parseSavedTake, type SavedTake, type TakeNoteEvent } from "./take";
 import { targetPitch, TUNING_TARGETS, TunerEngine, type PitchReading, type SignalFrame, type TunerStatus } from "./tuner";
 
-type AppView = PlayMode | "tuner" | "coach" | "practice" | "chapters";
+type AppView = PlayMode | "tuner" | "coach" | "ai-coach" | "practice" | "chapters";
 type CoachDrill = "strings" | "pulse";
 type HandLayout = "one" | "two";
 type PracticeInput = "screen" | "real";
+type LessonInput = "screen" | "real";
 type ReferencePlayback =
   | "tuner-target"
   | "coach-target"
@@ -97,6 +105,10 @@ let lessonDemoLineIndex = -1;
 let lessonDemoChordIndex = -1;
 let lessonDemoGestureIndex = -1;
 let lessonFeedback: "neutral" | "try-again" | "success" = "neutral";
+let lessonMicIgnoreUntil = 0;
+let lessonInput: LessonInput = storedPreference("four-strings-lesson-input") === "real" ? "real" : "screen";
+const lessonPitchConfirmation = new RealMelodyConfirmation();
+const lessonStrumCounter = new RealStrumCounter();
 let lessonTakeRecording = false;
 let lessonTakePlaying = false;
 let lessonTakeStartedAt = 0;
@@ -107,7 +119,8 @@ let coachDrill: CoachDrill = "strings";
 let coachTargetIndex = 0;
 let coachStableFrames = 0;
 let coachPulseHits = 0;
-let coachPulseAnchor = 0;
+const coachPulse = new PulseDrill();
+const coachConfirmation = new NoteConfirmation();
 let coachScreenActive = false;
 const coachOnsets = new OnsetDetector();
 let practiceActive = false;
@@ -140,7 +153,7 @@ let tunerReferenceSuppressUntil = 0;
 let coachReferenceSuppressUntil = 0;
 let practiceReferenceSuppressUntil = 0;
 let lastPlayView: PlayMode = "strum";
-let lastPracticeView: "practice" | "chapters" = "practice";
+let lastPracticeView: "practice" | "chapters" | "coach" = "practice";
 let handLayout: HandLayout = storedPreference("four-strings-hand-layout") === "one"
   ? "one"
   : storedPreference("four-strings-hand-layout") === "two"
@@ -177,6 +190,7 @@ const modeStrum = byId<HTMLButtonElement>("mode-strum");
 const modeExplore = byId<HTMLButtonElement>("mode-explore");
 const modeTuner = byId<HTMLButtonElement>("mode-tuner");
 const modeCoach = byId<HTMLButtonElement>("mode-coach");
+const modeAiCoach = byId<HTMLButtonElement>("mode-ai-coach");
 const modePractice = byId<HTMLButtonElement>("mode-practice");
 const modeChapters = byId<HTMLButtonElement>("mode-chapters");
 const playSubnav = byId<HTMLElement>("play-subnav");
@@ -234,6 +248,7 @@ const coachHearTarget = byId<HTMLButtonElement>("coach-hear-target");
 const coachReferenceStatus = byId<HTMLElement>("coach-reference-status");
 const coachLayerHint = byId<HTMLElement>("coach-layer-hint");
 const coachLayerHintDetail = byId<HTMLElement>("coach-layer-hint-detail");
+const aiCoachWorkbench = byId<HTMLElement>("ai-coach-workbench");
 const instrumentSourceChoice = byId<HTMLElement>("instrument-source-choice");
 const instrumentSourceTitle = byId<HTMLElement>("instrument-source-title");
 const practiceWorkbench = byId<HTMLElement>("practice-workbench");
@@ -274,9 +289,19 @@ const practiceLayerHintDetail = byId<HTMLElement>("practice-layer-hint-detail");
 const lessonWorkbench = byId<HTMLElement>("lesson-workbench");
 const songSearch = byId<HTMLInputElement>("song-search");
 const songResults = byId<HTMLElement>("song-results");
+const lessonStatusFilter = byId<HTMLSelectElement>("lesson-status-filter");
+const lessonTypeFilter = byId<HTMLSelectElement>("lesson-type-filter");
 const lessonSongTitle = byId<HTMLElement>("lesson-song-title");
 const lessonSongMeta = byId<HTMLElement>("lesson-song-meta");
 const lessonRights = byId<HTMLElement>("lesson-rights");
+const lessonTrustLabel = byId<HTMLElement>("lesson-trust-label");
+const lessonMaterialType = byId<HTMLElement>("lesson-material-type");
+const lessonTuning = byId<HTMLElement>("lesson-tuning");
+const lessonSourceKey = byId<HTMLElement>("lesson-source-key");
+const lessonArrangementVersion = byId<HTMLElement>("lesson-arrangement-version");
+const lessonSourceNote = byId<HTMLElement>("lesson-source-note");
+const lessonSourceList = byId<HTMLUListElement>("lesson-source-list");
+const lessonDownload = byId<HTMLButtonElement>("lesson-download");
 const lessonTitle = byId<HTMLElement>("lesson-technique-title");
 const lessonCopy = byId<HTMLElement>("lesson-technique-copy");
 const lessonTempo = byId<HTMLElement>("lesson-tempo");
@@ -310,8 +335,23 @@ const lessonTakeStatus = byId<HTMLElement>("lesson-take-status");
 const lessonTakeRecord = byId<HTMLButtonElement>("lesson-take-record");
 const lessonTakePlay = byId<HTMLButtonElement>("lesson-take-play");
 const lessonTakeClear = byId<HTMLButtonElement>("lesson-take-clear");
+const lessonTake = byId<HTMLElement>("lesson-take");
+const lessonInputScreen = byId<HTMLButtonElement>("lesson-input-screen");
+const lessonInputReal = byId<HTMLButtonElement>("lesson-input-real");
+const lessonInputNote = byId<HTMLElement>("lesson-input-note");
+const lessonRealChecks = byId<HTMLElement>("lesson-real-checks");
+const lessonShapeCheck = byId<HTMLInputElement>("lesson-shape-check");
+const lessonDirectionCheck = byId<HTMLInputElement>("lesson-direction-check");
+const lessonHeardStatus = byId<HTMLElement>("lesson-heard-status");
 const performanceReadout = byId<HTMLElement>("performance-readout");
 const realUkeButton = byId<HTMLButtonElement>("real-uke-button");
+
+const adaptiveCoach = new AdaptiveCoachController({
+  root: aiCoachWorkbench,
+  audio,
+  tuner,
+  ensureAudio: () => initializeAudio({ focusInstrument: false }),
+});
 
 const fretGridTemplate = getFretGridTemplate();
 fretLabels.style.gridTemplateColumns = fretGridTemplate;
@@ -429,6 +469,7 @@ function bindControls(): void {
   modeExplore.addEventListener("click", () => setView("explore"));
   modeTuner.addEventListener("click", () => setView("tuner"));
   modeCoach.addEventListener("click", () => setView("coach"));
+  modeAiCoach.addEventListener("click", () => setView("ai-coach"));
   modePractice.addEventListener("click", () => setView("practice"));
   modeChapters.addEventListener("click", () => setView("chapters"));
   layoutOneHand.addEventListener("click", () => setHandLayout("one"));
@@ -541,6 +582,8 @@ function bindControls(): void {
     });
   });
   songSearch.addEventListener("input", renderSongResults);
+  lessonStatusFilter.addEventListener("change", renderSongResults);
+  lessonTypeFilter.addEventListener("change", renderSongResults);
   songResults.addEventListener("click", (event) => {
     const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>(".song-result") : null;
     if (!button) return;
@@ -553,16 +596,21 @@ function bindControls(): void {
     selectedChapterIndex = 0;
     songSearch.value = "";
     resetLesson(`${currentSong().title} selected. Choose a chapter or hear the four-part demo.`);
+    if (window.matchMedia("(max-width: 700px)").matches && canPracticeLessonSong(currentSong())) {
+      lessonCue.scrollIntoView({ block: "center" });
+    }
   });
   lessonDemo.addEventListener("click", async () => {
+    if (!canPracticeLessonSong(currentSong())) return;
     stopReferenceAudio();
     if (!audio.isReady && !(await initializeAudio({ focusInstrument: false }))) return;
     if (lessonDemoPlaying) stopLessonDemo("Demo stopped. Start practice when you are ready.");
     else startLessonDemo();
   });
   lessonPractice.addEventListener("click", async () => {
-    if (!audio.isReady && !(await initializeAudio({ focusInstrument: false }))) return;
-    if (lessonPhase === "preview" || lessonPhase === "complete") startLessonPractice();
+    if (!canPracticeLessonSong(currentSong())) return;
+    if (lessonInput === "screen" && !audio.isReady && !(await initializeAudio({ focusInstrument: false }))) return;
+    if (lessonPhase === "preview" || lessonPhase === "complete") await startLessonPractice();
     else resetLesson("Practice reset. Hear the example or begin again.");
   });
   lessonTakeRecord.addEventListener("click", async () => {
@@ -574,6 +622,9 @@ function bindControls(): void {
     else await playSavedLessonTake();
   });
   lessonTakeClear.addEventListener("click", clearSavedLessonTake);
+  lessonInputScreen.addEventListener("click", () => setLessonInput("screen"));
+  lessonInputReal.addEventListener("click", () => setLessonInput("real"));
+  lessonDownload.addEventListener("click", () => downloadLessonPracticeScore(currentSong()));
 
   patternArm.addEventListener("click", () => {
     stopPatternPlayback();
@@ -651,6 +702,7 @@ function bindControls(): void {
       clearHeldPointers();
       stopReferenceAudio();
       if (currentView === "coach") stopCoach();
+      else if (currentView === "ai-coach") adaptiveCoach.leave();
       else stopTuner();
       stopLessonDemo();
       if (practiceActive && !practicePaused) pausePracticeSession();
@@ -660,6 +712,7 @@ function bindControls(): void {
     stopReferenceAudio();
     audio.dispose();
     tuner.stop();
+    adaptiveCoach.dispose();
     window.clearInterval(practiceTimer);
   });
 }
@@ -729,7 +782,7 @@ function currentLessonGuidance() {
       ? song.lines.length - 1
       : lessonLineIndex;
   const line = song.lines[lineIndex];
-  const events = lessonLineEvents(line, chapter, lessonPhase === "preview" ? "lines" : lessonPhase);
+  const events = lessonPlaybackEvents(line, chapter, lessonPhase, lessonDemoPlaying);
   const chordIndex = lessonDemoPlaying ? Math.max(0, lessonDemoChordIndex) : lessonChordIndex;
   const chord = isMelodyChapter(chapter)
     ? chapter.backing ? line.chords[0] ?? null : null
@@ -754,7 +807,7 @@ function startReferenceSequence(
   playback: ReferencePlayback,
   events: readonly ReferenceEvent[],
   finishAtMs: number,
-  suppress: "tuner" | "coach" | "practice" | null = null,
+  suppress: "tuner" | "coach" | "practice" | "lesson" | null = null,
 ): void {
   stopReferenceAudio();
   referencePlayback = playback;
@@ -764,6 +817,7 @@ function startReferenceSequence(
   if (suppress === "tuner") tunerReferenceSuppressUntil = suppressUntil;
   if (suppress === "coach") coachReferenceSuppressUntil = suppressUntil;
   if (suppress === "practice") practiceReferenceSuppressUntil = suppressUntil;
+  if (suppress === "lesson") lessonMicIgnoreUntil = suppressUntil;
   events.forEach((event, index) => {
     referenceTimers.push(window.setTimeout(() => {
       referenceStep = index;
@@ -795,6 +849,7 @@ function stopReferenceAudio(): void {
     tunerReferenceSuppressUntil = Math.min(tunerReferenceSuppressUntil, releaseAt);
     coachReferenceSuppressUntil = Math.min(coachReferenceSuppressUntil, releaseAt);
     practiceReferenceSuppressUntil = Math.min(practiceReferenceSuppressUntil, releaseAt);
+    lessonMicIgnoreUntil = Math.min(lessonMicIgnoreUntil, releaseAt);
   }
   renderReferenceControls();
 }
@@ -912,12 +967,14 @@ async function playPracticeReference(kind: "target" | "bar"): Promise<void> {
 }
 
 async function playLessonReference(kind: "chord" | "bar"): Promise<void> {
+  if (!canPracticeLessonSong(currentSong())) return;
   const playback: ReferencePlayback = kind === "chord" ? "lesson-chord" : "lesson-bar";
   if (referencePlayback === playback) {
     stopReferenceAudio();
     return;
   }
   if (!(await ensureReferenceAudio(lessonReferenceStatus))) return;
+  if (!canPracticeLessonSong(currentSong())) return;
   const { chapter, line, chord, gesture, events } = currentLessonGuidance();
   const melody = isMelodyChapter(chapter);
   if (kind === "chord") {
@@ -930,7 +987,7 @@ async function playLessonReference(kind: "chord" | "bar"): Promise<void> {
           audio.pluckString(gesture.stringIndex, position.midi, 0.66);
           showStringFeedback(gesture.stringIndex);
         },
-      }], 1350);
+      }], 1350, lessonInput === "real" ? "lesson" : null);
       return;
     }
     const resolvedChord = chord!;
@@ -942,16 +999,15 @@ async function playLessonReference(kind: "chord" | "bar"): Promise<void> {
         audio.playTogether(midis, 0.62);
         showReferenceStrings();
       },
-    }], 1450);
+    }], 1450, lessonInput === "real" ? "lesson" : null);
     return;
   }
   const beatMs = 60_000 / (chapter.bpm * referenceSpeed);
   const referenceEvents: ReferenceEvent[] = [];
-  if (melody && chapter.backing && line.chords.length > 0) {
-    const chordSpacing = lessonLineBeats(line, chapter) / line.chords.length;
-    line.chords.forEach((backingChord, index) => {
+  if (melody && chapter.backing) {
+    lessonBackingChordEvents(line, chapter).forEach(({ chord: backingChord, beat }) => {
       referenceEvents.push({
-        atMs: index * chordSpacing * beatMs,
+        atMs: beat * beatMs,
         label: `Backing ${backingChord} · phrase pulse`,
         play: () => {
           audio.playTogether(chordMidiNotes(backingChord), 0.32);
@@ -980,7 +1036,7 @@ async function playLessonReference(kind: "chord" | "bar"): Promise<void> {
   });
   referenceEvents.sort((a, b) => a.atMs - b.atMs);
   const finishBeats = melody ? lessonLineBeats(line, chapter) : currentSong().beatsPerBar;
-  startReferenceSequence(playback, referenceEvents, finishBeats * beatMs);
+  startReferenceSequence(playback, referenceEvents, finishBeats * beatMs, lessonInput === "real" ? "lesson" : null);
 }
 
 function showReferenceStrings(direction?: StrumDirection): void {
@@ -1045,12 +1101,12 @@ function renderCoachGuidance(activeLabel?: string): void {
     coachLayerHintDetail.textContent = complete
       ? "Repeat the set and aim for the same relaxed attack."
       : grade === "correct"
-        ? "Keep the note steady until the hold rail fills."
+        ? "Pluck once and let it ring. The rail confirms the pitch automatically."
         : hint.secondary;
     setReferenceButton(coachHearTarget, "coach-target", `Hear ${target.label}`);
     coachHearTarget.disabled = complete;
   } else {
-    coachLayerTarget.textContent = `↓ Beat ${Math.min(coachPulseHits + 1, 8)} of 8`;
+    coachLayerTarget.textContent = coachPulseHits >= 8 ? "Eight strums complete" : `↓ Beat ${coachPulseHits + 1} of 8`;
     coachLayerNotes.textContent = `C chord · 72 BPM · ${chordNoteNames("C").join(" · ")}`;
     coachLayerHint.textContent = "Let your wrist travel the same distance every beat.";
     coachLayerHintDetail.textContent = coachPulseHits === 0
@@ -1140,8 +1196,9 @@ function renderLessonGuidance(activeLabel?: string): void {
     setReferenceButton(lessonHearChord, "lesson-chord", `Hear ${resolvedChord} chord`);
     setReferenceButton(lessonHearBar, "lesson-bar", "Hear one bar");
   }
-  lessonHearChord.disabled = lessonDemoPlaying;
-  lessonHearBar.disabled = lessonDemoPlaying;
+  const referenceAllowed = canPracticeLessonSong(currentSong());
+  lessonHearChord.disabled = lessonDemoPlaying || !referenceAllowed;
+  lessonHearBar.disabled = lessonDemoPlaying || !referenceAllowed;
   lessonReferenceStatus.textContent = referencePlayback === "lesson-chord" || referencePlayback === "lesson-bar"
     ? activeLabel ?? "Reference playing · follow the highlighted move"
     : `Preview at ${Math.round(referenceSpeed * 100)}% · audio starts only when you ask.`;
@@ -1154,22 +1211,24 @@ function setView(view: AppView): void {
   stopLessonTakePlayback();
   if (lessonTakeRecording && view !== "chapters") finishLessonTakeRecording();
   if (currentView === "coach" && view !== "coach") stopCoach();
+  if (currentView === "ai-coach" && view !== "ai-coach") adaptiveCoach.leave();
   if (currentView === "tuner" && view !== "tuner") stopTuner();
+  if (currentView === "chapters" && view !== "chapters" && lessonInput === "real") stopLessonMicrophone();
   if (currentView === "practice" && view !== "practice" && practiceActive && !practicePaused) pausePracticeSession();
   if (focusMode && view !== "strum" && view !== "explore") setFocusMode(false);
   currentView = view;
   if (view === "strum" || view === "explore") lastPlayView = view;
-  if (view === "practice" || view === "chapters") lastPracticeView = view;
+  if (view === "practice" || view === "chapters" || view === "coach") lastPracticeView = view;
   document.body.dataset.appView = view;
   const instrumentMode: PlayMode = view === "explore" ? "explore" : "strum";
   state.setMode(instrumentMode);
   activeFretPointers.clear();
   const playView = view === "strum" || view === "explore";
-  const practiceView = view === "practice" || view === "chapters";
+  const practiceView = view === "practice" || view === "chapters" || view === "coach";
   const primaryButtons: Array<[HTMLButtonElement, boolean]> = [
     [navPlay, playView],
     [navPractice, practiceView],
-    [modeCoach, view === "coach"],
+    [modeAiCoach, view === "ai-coach"],
     [modeTuner, view === "tuner"],
   ];
   primaryButtons.forEach(([button, selected]) => {
@@ -1181,6 +1240,7 @@ function setView(view: AppView): void {
     [modeExplore, "explore"],
     [modePractice, "practice"],
     [modeChapters, "chapters"],
+    [modeCoach, "coach"],
   ];
   secondaryButtons.forEach(([button, value]) => {
     button.classList.toggle("is-selected", value === view);
@@ -1203,9 +1263,14 @@ function setView(view: AppView): void {
       guidance: "Listen to one open string at a time and adjust it toward centre.",
     },
     coach: {
-      eyebrow: "Coach · Real ukulele",
+      eyebrow: "Practice · Quick drills",
       title: "Play it. See what landed.",
       guidance: "Get immediate feedback on open-string clarity or a steady pulse.",
+    },
+    "ai-coach": {
+      eyebrow: "AI Coach · Rhythm lab",
+      title: "Hear what changed.",
+      guidance: "Play a short pattern, fix one moment, then compare your next take.",
     },
     practice: {
       eyebrow: "Practice · Guided session",
@@ -1233,16 +1298,18 @@ function setView(view: AppView): void {
   patternBuilder.hidden = view !== "explore";
   tunerWorkbench.hidden = view !== "tuner";
   coachWorkbench.hidden = view !== "coach";
+  aiCoachWorkbench.hidden = view !== "ai-coach";
   practiceWorkbench.hidden = view !== "practice";
   lessonWorkbench.hidden = view !== "chapters";
   instrumentSourceChoice.hidden = view !== "practice" && view !== "coach";
-  instrumentFrame.hidden = view === "tuner" || (view === "coach" && practiceInput === "real");
-  performanceReadout.hidden = view === "tuner" || (view === "coach" && practiceInput === "real");
-  clearButton.hidden = view === "tuner" || (view === "coach" && practiceInput === "real");
+  instrumentFrame.hidden = view === "tuner" || view === "ai-coach" || (view === "coach" && practiceInput === "real");
+  performanceReadout.hidden = view === "tuner" || view === "ai-coach" || (view === "coach" && practiceInput === "real");
+  clearButton.hidden = view === "tuner" || view === "ai-coach" || (view === "coach" && practiceInput === "real");
   if (view !== "explore") patternArmed = false;
   if (view === "chapters") renderLesson();
   if (view === "coach") renderCoach();
   if (view === "practice") renderPractice();
+  if (view === "ai-coach") adaptiveCoach.enter();
   renderInstrumentSource();
   updateInputHint();
   renderPattern();
@@ -1415,7 +1482,9 @@ function handleKeyboard(event: KeyboardEvent): void {
     setFocusMode(false);
     return;
   }
+  if (currentView === "chapters" && lessonInput === "real") return;
   if (!audio.isReady) return;
+  if (event.target instanceof Element && event.target.closest("select")) return;
 
   if (/^[1-4]$/.test(event.key) && !(event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement)) {
     event.preventDefault();
@@ -1776,8 +1845,9 @@ function stopCoach(message?: string): void {
 function resetCoach(): void {
   coachTargetIndex = 0;
   coachStableFrames = 0;
+  coachConfirmation.reset();
   coachPulseHits = 0;
-  coachPulseAnchor = 0;
+  coachPulse.reset();
   coachOnsets.reset();
   coachHeardNote.textContent = "—";
   coachHeardDetail.textContent = practiceInput === "screen" ? "Waiting for an on-screen note" : "Waiting for a clear note";
@@ -1839,12 +1909,13 @@ function handleCoachReading(reading: PitchReading | null, signal: SignalFrame): 
   coachHeardNote.textContent = feedback.heardNote;
   coachHeardDetail.textContent = coachPitchDetail(feedback.grade, feedback.cents);
 
-  if (feedback.grade === "correct") coachStableFrames += 1;
-  else coachStableFrames = 0;
+  const confirmed = coachConfirmation.push(feedback.grade, signal.at);
+  coachStableFrames = coachConfirmation.frames;
 
-  if (coachStableFrames >= 7) {
+  if (confirmed) {
     coachTargetIndex += 1;
     coachStableFrames = 0;
+    coachConfirmation.reset();
     if (coachTargetIndex >= TUNING_TARGETS.length) {
       coachStatus.textContent = "All four strings landed cleanly. That is a balanced GCEA set.";
       coachHeardDetail.textContent = "Clarity drill complete";
@@ -1853,7 +1924,7 @@ function handleCoachReading(reading: PitchReading | null, signal: SignalFrame): 
       coachToggle.classList.remove("is-listening");
       coachToggle.querySelector("span")!.textContent = "Practice again";
     } else {
-      coachStatus.textContent = `${target.id} landed. Let it fade, then play ${TUNING_TARGETS[coachTargetIndex].label}.`;
+      coachStatus.textContent = `${target.id} accepted ✓ — play ${TUNING_TARGETS[coachTargetIndex].id} next. Pluck once and let it ring.`;
     }
   } else if (feedback.grade !== "quiet") {
     coachStatus.textContent = coachPitchInstruction(feedback.grade, target.id);
@@ -1867,26 +1938,30 @@ function handleCoachPulse(signal: SignalFrame): void {
 }
 
 function recordCoachPulse(at: number): void {
-  if (coachPulseHits === 0) coachPulseAnchor = at;
-  const feedback = gradeRhythmHit(at, coachPulseAnchor, 72, coachPulseHits);
+  if (coachPulseHits >= 8) return;
+  const feedback = coachPulse.push(at);
   coachLive.dataset.grade = feedback.grade;
-  coachPulseHits += 1;
+  coachPulseHits = coachPulse.hits.length;
   coachHeardNote.textContent = String(coachPulseHits);
-  coachHeardDetail.textContent = coachPulseHits === 1
-    ? "Pulse started · keep it even"
-    : `${feedback.deltaMs > 0 ? "+" : ""}${Math.round(feedback.deltaMs)} ms · ${feedback.grade.replace("-", " ")}`;
-  coachStatus.textContent = feedback.grade === "on-time"
-    ? "That landed in the pocket. Keep the same distance to the next beat."
-    : feedback.grade === "early"
-      ? "A little early. Give the next beat more room."
-      : "A little late. Let the wrist return sooner.";
+  const label = feedback.grade === "on-time" ? "steady" : feedback.grade === "early" ? "too quick" : "too slow";
+  coachHeardDetail.textContent = `Last gap: ${feedback.gapMs === null ? "—" : `${Math.round(feedback.gapMs)} ms`} / Target: 833 ms${feedback.gapMs === null ? "" : ` · ${label}`}`;
+  coachStatus.textContent = feedback.grade === "restart"
+    ? "Pause detected — fresh pulse started. This strum is your new starting point."
+    : feedback.grade === "start"
+      ? "Starting point set. Leave an even gap between strums. A pause over 2.5 seconds restarts the run."
+      : feedback.grade === "on-time"
+        ? "Steady — keep that spacing."
+        : feedback.grade === "early"
+          ? "Too quick — give the next gap a little more room."
+          : "Too slow — bring the next strum a little closer.";
   if (coachPulseHits >= 8) {
     coachScreenActive = false;
     tuner.stop();
     coachSignal.textContent = practiceInput === "screen" ? "Screen input · complete" : "Signal · complete";
     coachToggle.classList.remove("is-listening");
     coachToggle.querySelector("span")!.textContent = "Practice again";
-    coachStatus.textContent = "Eight-strum pulse complete. Repeat it and aim for an even four-beat breath.";
+    const summary = coachPulse.summary();
+    coachStatus.textContent = `${summary.steady} of 7 gaps steady · ${summary.early} too quick · ${summary.late} too slow. Average gap: ${summary.averageGapMs} ms. ${summary.steady === 7 ? "Beautifully even spacing." : "Try again and aim for 833 ms between strums."} The first strum sets the start; it is not scored.`;
   }
   renderCoach();
 }
@@ -1929,7 +2004,7 @@ function handleCoachScreenGesture(
     coachToggle.querySelector("span")!.textContent = "Practice again";
     coachStatus.textContent = "All four open strings matched in GCEA order.";
   } else {
-    coachStatus.textContent = `${heard.id} matched. Now play open ${TUNING_TARGETS[coachTargetIndex].label}.`;
+    coachStatus.textContent = `${heard.id} accepted ✓ — play ${TUNING_TARGETS[coachTargetIndex].id} next.`;
   }
   renderCoach();
 }
@@ -1954,7 +2029,7 @@ function renderCoach(): void {
   }
   coachWorkbench.querySelector<HTMLElement>(".coach-setup")!.hidden = screenCoach;
   if (currentView === "coach") {
-    viewEyebrow.textContent = screenCoach ? "Coach · On-screen ukulele" : "Coach · Real ukulele";
+    viewEyebrow.textContent = "Practice · Quick drills";
     modeGuidance.textContent = screenCoach
       ? "Learn the target with exact feedback from the playable strings."
       : "Get immediate feedback on open-string clarity or a steady pulse.";
@@ -1969,6 +2044,11 @@ function renderCoach(): void {
   coachStringEcho.hidden = coachDrill !== "strings";
   coachBeats.hidden = coachDrill !== "pulse";
   coachHold.hidden = coachDrill !== "strings" || screenCoach;
+  const acceptance = byId<HTMLElement>("coach-acceptance");
+  acceptance.hidden = coachDrill !== "strings" || coachTargetIndex === 0;
+  acceptance.textContent = coachTargetIndex === 0 ? "" : coachTargetIndex >= 4
+    ? "G · C · E · A accepted ✓ — all four complete"
+    : `${TUNING_TARGETS[coachTargetIndex - 1].id} accepted ✓ — play ${TUNING_TARGETS[coachTargetIndex].id} next`;
 
   if (coachDrill === "strings") {
     const complete = coachTargetIndex >= TUNING_TARGETS.length;
@@ -1994,7 +2074,11 @@ function renderCoach(): void {
     coachGoal.textContent = "Hold 72 BPM";
     coachNext.textContent = coachPulseHits >= 8 ? "Pulse complete" : `Next · beat ${coachPulseHits + 1}`;
     coachBeats.querySelectorAll("span").forEach((beat, index) => {
-      beat.classList.toggle("is-complete", index < coachPulseHits);
+      const hit = coachPulse.hits[index];
+      const label = !hit ? "waiting" : hit.grade === "on-time" ? "steady" : hit.grade === "early" ? "too quick" : hit.grade === "late" ? "too slow" : "start";
+      beat.dataset.grade = hit?.grade ?? "waiting";
+      beat.textContent = `${index + 1} · ${label}`;
+      beat.setAttribute("aria-label", `Strum ${index + 1}: ${label}${hit?.gapMs != null ? `, ${Math.round(hit.gapMs)} milliseconds` : ""}`);
       beat.classList.toggle("is-current", index === coachPulseHits);
     });
   }
@@ -2636,6 +2720,7 @@ function renderTunerTargets(): void {
 }
 
 function resetLesson(message: string): void {
+  stopLessonMicrophone();
   stopReferenceAudio();
   stopLessonDemo();
   stopLessonTakePlayback();
@@ -2655,11 +2740,15 @@ function currentSong() {
 }
 
 function renderSongResults(): void {
-  const matches = filterLessonSongs(songSearch.value);
+  const filters: LessonLibraryFilters = {
+    status: lessonStatusFilter.value as LessonLibraryFilters["status"],
+    type: lessonTypeFilter.value as LessonLibraryFilters["type"],
+  };
+  const matches = filterLessonLibrary(LESSON_SONGS, songSearch.value, filters);
   if (matches.length === 0) {
     const empty = document.createElement("p");
     empty.className = "song-results-empty";
-    empty.textContent = "No lessons found. Try “Punjabi”, “sargam”, “melody”, or “beginner”.";
+    empty.textContent = "No lessons match this search and filter combination. Clear the search or choose All.";
     songResults.replaceChildren(empty);
     return;
   }
@@ -2675,14 +2764,15 @@ function renderSongResults(): void {
       button.classList.toggle("is-selected", selected);
       button.dataset.songId = song.id;
       button.setAttribute("aria-pressed", String(selected));
-      button.innerHTML = `<span class="song-result-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="song-result-copy"><strong>${song.title}</strong><small>${song.artist} · ${song.genre}</small></span><span class="song-result-chords">${skill}</span><span class="song-result-rights">${song.rights}</span>`;
+      button.innerHTML = `<span class="song-result-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="song-result-copy"><strong>${song.title}</strong><small>${song.artist} · ${song.genre}</small></span><span class="song-result-chords">${skill}</span><span class="song-result-rights">${trustLabel(song)}</span>`;
       return button;
     }),
   );
 }
 
-function startLessonPractice(): void {
-  if (!audio.isReady) {
+async function startLessonPractice(): Promise<void> {
+  if (!canPracticeLessonSong(currentSong())) return;
+  if (lessonInput === "screen" && !audio.isReady) {
     lessonStatus.textContent = "Enable the sampled ukulele below, then come back to start your turn.";
     instrumentFrame.scrollIntoView({ behavior: "smooth", block: "center" });
     return;
@@ -2695,6 +2785,8 @@ function startLessonPractice(): void {
   lessonChordIndex = 0;
   lessonGestureIndex = 0;
   lessonFeedback = "neutral";
+  lessonPitchConfirmation.reset();
+  lessonStrumCounter.reset();
   state.clearAll();
   const song = currentSong();
   const chapter = song.chapters[selectedChapterIndex];
@@ -2708,6 +2800,7 @@ function startLessonPractice(): void {
   }
   renderInstrumentState();
   renderLesson();
+  if (lessonInput === "real") await startLessonMicrophone();
 }
 
 function renderLesson(): void {
@@ -2718,6 +2811,7 @@ function renderLesson(): void {
   lessonWorkbench.dataset.demo = String(lessonDemoPlaying);
   lessonWorkbench.dataset.feedback = lessonFeedback;
   lessonWorkbench.dataset.technique = melodyChapter ? "melody" : "chords";
+  lessonWorkbench.dataset.input = lessonInput;
   const phaseForPattern: LessonPhase = lessonPhase === "full" || lessonPhase === "complete" ? "full" : "lines";
   document.querySelectorAll<HTMLButtonElement>(".chapter-tab").forEach((button, index) => {
     const selected = index === selectedChapterIndex;
@@ -2728,7 +2822,8 @@ function renderLesson(): void {
   const chordNames = [...new Set(song.lines.flatMap((line) => line.chords))];
   lessonSongTitle.textContent = song.title;
   lessonSongMeta.textContent = `${song.artist} · ${song.genre} · Key of ${song.key} · ${song.meter} · ${melodyChapter ? song.skillLabel ?? "single-note melody" : chordNames.join(", ")}`;
-  lessonRights.textContent = song.rightsDetail;
+  lessonRights.textContent = `${song.rightsDetail}${lessonTrust(song).status === "unverified" ? " · Unverified arrangement" : ""}`;
+  renderLessonProvenance(song);
   lessonTitle.textContent = chapter.title;
   lessonCopy.textContent = chapter.description;
   lessonTempo.textContent = `${chapter.bpm} BPM · ${song.meter}`;
@@ -2747,8 +2842,13 @@ function renderLesson(): void {
     : lessonPhase === "complete"
       ? "Practice again"
       : "Reset practice";
-  lessonDemo.disabled = false;
-  lessonDemo.title = audio.isReady ? "" : "Sound will load when the demo starts";
+  const practiceAllowed = canPracticeLessonSong(song);
+  lessonPractice.disabled = !practiceAllowed;
+  lessonPractice.title = practiceAllowed ? "" : "This arrangement is unverified; demo and guided practice are unavailable.";
+  lessonDemo.disabled = !practiceAllowed;
+  lessonDemo.title = practiceAllowed
+    ? audio.isReady ? "" : "Sound will load when the demo starts"
+    : "This arrangement is unverified; demo and guided practice are unavailable.";
   lessonDemo.querySelector("span")!.textContent = lessonDemoPlaying ? "Stop demo" : `Hear ${song.lines.length}-line demo`;
   lessonDemo.classList.toggle("is-playing", lessonDemoPlaying);
   renderLessonCue();
@@ -2757,8 +2857,8 @@ function renderLesson(): void {
   lessonLines.replaceChildren(
     ...song.lines.map((line, lineIndex) => {
       const item = document.createElement("li");
-      const isCurrent = (lessonPhase === "preview" && lineIndex === 0) ||
-        (lessonPhase !== "preview" && lessonPhase !== "complete" && lineIndex === lessonLineIndex);
+      const isCurrent = !lessonDemoPlaying && ((lessonPhase === "preview" && lineIndex === 0) ||
+        (lessonPhase !== "preview" && lessonPhase !== "complete" && lineIndex === lessonLineIndex));
       const isDemo = lessonDemoPlaying && lineIndex === lessonDemoLineIndex;
       const isComplete = lessonPhase === "complete" ||
         ((lessonPhase === "lines" || lessonPhase === "full") && lineIndex < lessonLineIndex);
@@ -2793,9 +2893,47 @@ function renderLesson(): void {
       : "Tap to play all four strings together, or sweep across them to strum in order",
   );
   renderLessonTakeControls();
+  renderLessonInput();
   renderSongResults();
   if (currentView === "chapters") renderInstrumentState();
   updateInputHint();
+}
+
+function renderLessonProvenance(song: (typeof LESSON_SONGS)[number]): void {
+  const trust = lessonTrust(song);
+  const exportAllowed = canPracticeLessonSong(song);
+  lessonTrustLabel.textContent = trust.label;
+  lessonTrustLabel.dataset.status = trust.status;
+  lessonMaterialType.textContent = song.provenance.type === "exercise"
+    ? "Exercise"
+    : song.provenance.type[0].toUpperCase() + song.provenance.type.slice(1);
+  lessonTuning.textContent = song.provenance.tuning.join(" · ");
+  lessonSourceKey.textContent = song.key;
+  lessonArrangementVersion.textContent = song.provenance.arrangementVersion;
+  lessonSourceNote.textContent = trust.status === "source-backed"
+    ? "These links support the details named below. Their authors do not endorse or review this Four Strings arrangement."
+    : trust.status === "original"
+      ? "Created for Four Strings from the user-provided note path; no external arrangement is claimed."
+      : "No reliable playable ukulele score is attached, so demo and guided practice remain blocked.";
+  const sourceItems = song.provenance.sources.flatMap((source) => {
+    const href = safeLessonSourceUrl(source.url);
+    if (!href) return [];
+    const item = document.createElement("li");
+    const link = document.createElement("a");
+    const support = document.createElement("small");
+    link.href = href;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = source.title;
+    support.textContent = source.supports;
+    item.append(link, support);
+    return [item];
+  });
+  lessonSourceList.replaceChildren(...sourceItems);
+  lessonSourceList.hidden = sourceItems.length === 0;
+  lessonDownload.disabled = !exportAllowed;
+  lessonDownload.textContent = exportAllowed ? "Download practice JSON" : "Practice JSON unavailable";
+  lessonDownload.title = exportAllowed ? "" : "A reliable playable lesson is required before practice data can be exported.";
 }
 
 function renderLessonCue(): void {
@@ -2915,6 +3053,7 @@ function lessonGestureDetail(gesture: LessonGesture): string {
 }
 
 function startLessonDemo(): void {
+  if (!canPracticeLessonSong(currentSong())) return;
   if (!audio.isReady) {
     lessonStatus.textContent = "Enable sound on the instrument below before starting the demo.";
     return;
@@ -3017,6 +3156,10 @@ function stopLessonDemo(message?: string): void {
   lessonDemoLineIndex = -1;
   lessonDemoChordIndex = -1;
   lessonDemoGestureIndex = -1;
+  if (wasPlaying) {
+    audio.stopAllVoices();
+    lessonMicIgnoreUntil = performance.now() + 180;
+  }
   if (message && wasPlaying) lessonStatus.textContent = message;
   if (wasPlaying) renderLesson();
 }
@@ -3122,19 +3265,117 @@ function renderLessonTakeControls(): void {
   lessonTakePlay.classList.toggle("is-playing", lessonTakePlaying);
   lessonTakePlay.setAttribute("aria-pressed", String(lessonTakePlaying));
   lessonTakePlay.textContent = lessonTakePlaying ? "Stop playback" : "Play saved";
-  lessonTakePlay.disabled = lessonTakeRecording || (!take && !lessonTakePlaying);
-  lessonTakeClear.disabled = lessonTakeRecording || lessonTakePlaying || !take;
+  lessonTakeRecord.disabled = lessonInput === "real";
+  lessonTakePlay.disabled = lessonInput === "real" || lessonTakeRecording || (!take && !lessonTakePlaying);
+  lessonTakeClear.disabled = lessonInput === "real" || lessonTakeRecording || lessonTakePlaying || !take;
   lessonTakeStatus.textContent = lessonTakeRecording
     ? `Recording · ${lessonTakeEvents.length} ${lessonTakeEvents.length === 1 ? "note" : "notes"} captured`
     : lessonTakePlaying
       ? "Playing your saved take through the sampled ukulele"
       : take
         ? `${take.events.length} ${take.events.length === 1 ? "note" : "notes"} · ${(take.durationMs / 1000).toFixed(1)}s · saved on this device`
-        : "No take saved for this chapter";
+        : lessonInput === "real"
+          ? "Recording and replay are unavailable for real ukulele input · microphone audio is never stored"
+          : "No take saved for this chapter";
+}
+
+function setLessonInput(input: LessonInput): void {
+  if (lessonInput === input) return;
+  stopLessonMicrophone();
+  stopReferenceAudio();
+  stopLessonDemo();
+  stopLessonTakePlayback();
+  if (lessonTakeRecording) finishLessonTakeRecording();
+  lessonInput = input;
+  storePreference("four-strings-lesson-input", input);
+  resetLesson(`${input === "real" ? "Real ukulele" : "On-screen ukulele"} selected. Start practice when ready.`);
+}
+
+function renderLessonInput(): void {
+  const real = lessonInput === "real";
+  lessonInputScreen.classList.toggle("is-selected", !real);
+  lessonInputReal.classList.toggle("is-selected", real);
+  lessonInputScreen.setAttribute("aria-pressed", String(!real));
+  lessonInputReal.setAttribute("aria-pressed", String(real));
+  lessonRealChecks.hidden = !real || isMelodyChapter(currentSong().chapters[selectedChapterIndex]);
+  lessonTake.hidden = false;
+  instrumentFrame.hidden = currentView === "chapters" && real;
+  performanceReadout.hidden = currentView === "chapters" && real;
+  clearButton.hidden = currentView === "chapters" && real;
+  lessonInputNote.textContent = real
+    ? isMelodyChapter(currentSong().chapters[selectedChapterIndex])
+      ? "Microphone confirms the expected pitch after a clear attack. It cannot identify the exact ukulele string. Repeated notes need a fresh pluck."
+      : "Microphone counts clear strum attacks. Confirm the shown chord shape and arrow yourself; audio cannot identify shape or direction."
+    : "Use the instrument below; Four Strings checks the exact string, fret, shape, and direction.";
+  if (real && !tuner.isListening && lessonPhase === "preview") {
+    lessonHeardStatus.dataset.state = "idle";
+    lessonHeardStatus.textContent = "Expected and heard status appears after you start practice.";
+  }
+}
+
+async function startLessonMicrophone(): Promise<void> {
+  lessonHeardStatus.dataset.state = "requesting";
+  lessonHeardStatus.textContent = "Requesting microphone access…";
+  await tuner.start(handleLessonMicReading, handleLessonMicStatus);
+}
+
+function stopLessonMicrophone(): void {
+  if (lessonInput === "real") tuner.stop();
+  lessonPitchConfirmation.reset();
+  lessonStrumCounter.reset();
+}
+
+function handleLessonMicStatus(status: TunerStatus, message: string): void {
+  if (currentView !== "chapters" || lessonInput !== "real") return;
+  lessonHeardStatus.dataset.state = status;
+  lessonHeardStatus.textContent = status === "error" ? `${message} Press Reset practice, then Start practice to retry.` : message;
+}
+
+function midiFrequency(midi: number): number {
+  return 440 * 2 ** ((midi - 69) / 12);
+}
+
+function handleLessonMicReading(reading: PitchReading | null, signal: SignalFrame): void {
+  if (currentView !== "chapters" || lessonInput !== "real" || lessonDemoPlaying || referencePlayback !== null || signal.at < lessonMicIgnoreUntil) return;
+  if (lessonPhase !== "lines" && lessonPhase !== "full") return;
+  const { chapter, gesture } = currentLessonGuidance();
+  if (isMelodyChapter(chapter) && gesture.kind === "pluck") {
+    const expected = getFretPosition(gesture.stringIndex, gesture.fret ?? 0);
+    const result = lessonPitchConfirmation.update(reading?.frequency ?? null, midiFrequency(expected.midi), signal.rms, signal.at);
+    const heard = reading ? `${reading.frequency.toFixed(1)} Hz` : "waiting for a clear attack";
+    lessonHeardStatus.dataset.state = result.accepted ? "accepted" : "listening";
+    lessonHeardStatus.textContent = `Expected ${expected.noteName} · Heard ${heard} · ${result.accepted ? "Accepted" : `confirming ${result.stableFrames}/3`}`;
+    if (result.accepted) {
+      lessonGestureIndex += 1;
+      lessonFeedback = "success";
+      const events = lessonLineEvents(currentSong().lines[lessonLineIndex], chapter, lessonPhase);
+      if (lessonGestureIndex >= events.length) advanceLessonLine();
+      else {
+        const next = events[lessonGestureIndex];
+        if (next.kind === "pluck") lessonPitchConfirmation.nextExpected(midiFrequency(getFretPosition(next.stringIndex, next.fret ?? 0).midi));
+        renderLesson();
+      }
+    }
+    return;
+  }
+  if (!lessonStrumCounter.update(signal.rms, signal.at)) return;
+  if (!lessonShapeCheck.checked || !lessonDirectionCheck.checked) {
+    lessonHeardStatus.dataset.state = "error";
+    lessonHeardStatus.textContent = `Expected ${lessonGestureVisual(gesture)} · Heard strum attack · Confirm the shown shape and direction, then try again.`;
+    return;
+  }
+  lessonHeardStatus.dataset.state = "accepted";
+  lessonHeardStatus.textContent = `Expected ${lessonGestureVisual(gesture)} · Heard strum attack · Shape and direction self-checked · Accepted`;
+  lessonShapeCheck.checked = false;
+  lessonDirectionCheck.checked = false;
+  lessonGestureIndex += 1;
+  const events = lessonLineEvents(currentSong().lines[lessonLineIndex], chapter, lessonPhase);
+  if (lessonGestureIndex >= events.length) advanceLessonChord();
+  else renderLesson();
 }
 
 function handleLessonGesture(gesture: LessonGesture): void {
-  if (currentView !== "chapters" || lessonDemoPlaying || (lessonPhase !== "lines" && lessonPhase !== "full")) return;
+  if (currentView !== "chapters" || lessonInput !== "screen" || lessonDemoPlaying || (lessonPhase !== "lines" && lessonPhase !== "full")) return;
   const song = currentSong();
   const line = song.lines[lessonLineIndex];
   const chapter = song.chapters[selectedChapterIndex];
@@ -3203,6 +3444,7 @@ function advanceLessonLine(): void {
   lessonLineIndex += 1;
   if (lessonLineIndex < song.lines.length) {
     const next = song.lines[lessonLineIndex].notes![0];
+    lessonPitchConfirmation.nextExpected(midiFrequency(getFretPosition(next.stringIndex, next.fret ?? 0).midi));
     lessonStatus.textContent = `Part ${lessonLineIndex} complete. Next: ${gestureInstruction(next)} for “${song.lines[lessonLineIndex].label}”.`;
     renderLesson();
     return;
@@ -3210,6 +3452,8 @@ function advanceLessonLine(): void {
   if (lessonPhase === "lines") {
     lessonPhase = "full";
     lessonLineIndex = 0;
+    const next = song.lines[0].notes![0];
+    lessonPitchConfirmation.nextExpected(midiFrequency(getFretPosition(next.stringIndex, next.fret ?? 0).midi));
     lessonStatus.textContent = `All ${song.lines.length} parts learned. Now connect the full melody without stopping.`;
   } else {
     lessonPhase = "complete";
@@ -3346,7 +3590,7 @@ function physicalStringNumber(stringIndex: number): number {
 }
 
 function isFormControl(target: EventTarget | null): boolean {
-  return target instanceof Element && Boolean(target.closest("input, summary, .control-ribbon button, .view-subnav button, .instrument-source-choice button, .pattern-builder button, .audio-gate, .lesson-workbench button, .tuner-workbench button, .coach-workbench button, .practice-workbench button"));
+  return target instanceof Element && Boolean(target.closest("input, select, summary, .control-ribbon button, .view-subnav button, .instrument-source-choice button, .pattern-builder button, .audio-gate, .lesson-workbench button, .tuner-workbench button, .coach-workbench button, .ai-coach-workbench button, .practice-workbench button"));
 }
 
 function tryCapturePointer(element: Element, pointerId: number): void {

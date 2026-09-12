@@ -7,16 +7,23 @@ import {
   lessonLineEvents,
   lessonEvents,
   matchesChord,
+  canPracticeLessonSong,
+  lessonPlaybackEvents,
+  lessonBackingChordEvents,
 } from "./lesson";
 
 describe("guided song chapters", () => {
-  it("offers four searchable courses with three chapters each", () => {
-    expect(LESSON_SONGS.map((song) => song.title)).toEqual(["Lathe Di Chadar", "Khaab", "Sa Re Ga Ma", "Twinkle Twinkle"]);
+  it("offers six searchable courses with three chapters each", () => {
+    expect(LESSON_SONGS.map((song) => song.title)).toEqual([
+      "Lathe Di Chadar", "Khaab", "Sa Re Ga Ma", "Twinkle Twinkle", "Yellow", "I’m Yours",
+    ]);
     expect(LESSON_SONGS.every((song) => song.lines.length === 4 && song.chapters.length === 3)).toBe(true);
     expect(filterLessonSongs("folk").map((song) => song.id)).toEqual(["lathe-di-chadar"]);
     expect(filterLessonSongs("akhil").map((song) => song.id)).toEqual(["khaab"]);
     expect(filterLessonSongs("solfege").map((song) => song.id)).toEqual(["sargam"]);
     expect(filterLessonSongs("nursery").map((song) => song.id)).toEqual(["twinkle-twinkle"]);
+    expect(filterLessonSongs("coldplay").map((song) => song.id)).toEqual(["yellow"]);
+    expect(filterLessonSongs("jason mraz").map((song) => song.id)).toEqual(["im-yours"]);
     expect(filterLessonSongs("missing")).toEqual([]);
   });
 
@@ -64,5 +71,51 @@ describe("guided song chapters", () => {
     ]);
     expect(thirdLine[2]).toMatchObject({ quick: true, beat: 1.5 });
     expect(twinkle.chapters[1].fullEvents.map((event) => event.kind)).toEqual(["strum", "strum", "strum", "strum"]);
+  });
+
+  it("teaches Yellow as C–G–F before the F–Am–G chorus turn", () => {
+    const yellow = LESSON_SONGS.find((song) => song.id === "yellow")!;
+    expect(yellow.lines.map((line) => line.chords)).toEqual([["C"], ["G"], ["F"], ["F", "Am", "G"]]);
+    expect(yellow.chapters.map((chapter) => chapter.shortTitle)).toEqual(["Verse pulse", "Starry picking", "Island glow"]);
+    expect(yellow.chapters[2].bpm).toBe(87);
+    expect(yellow.chapters[2].fullPattern).toBe("D · D-U · U-D-U");
+  });
+
+  it("builds I’m Yours around the beginner C–G–Am–F loop", () => {
+    const imYours = LESSON_SONGS.find((song) => song.id === "im-yours")!;
+    expect(imYours.lines.flatMap((line) => line.chords)).toEqual(["C", "G", "Am", "F"]);
+    expect(imYours.chapters.map((chapter) => chapter.shortTitle)).toEqual(["Four-chord loop", "Sunny picking", "Island strum"]);
+    expect(imYours.chapters[2].fullPattern).toBe("D · D-U · U-D-U");
+    expect(imYours.rightsDetail).toContain("lyrics and melody not included");
+  });
+
+  it("blocks unverified arrangements without deleting their course data", () => {
+    const lathe = LESSON_SONGS.find((song) => song.id === "lathe-di-chadar")!;
+    const khaab = LESSON_SONGS.find((song) => song.id === "khaab")!;
+    const yellow = LESSON_SONGS.find((song) => song.id === "yellow")!;
+    expect([lathe.provenance.status, khaab.provenance.status]).toEqual(["unverified", "unverified"]);
+    expect(lathe.lines).toHaveLength(4);
+    expect(khaab.chapters).toHaveLength(3);
+    expect(canPracticeLessonSong(lathe)).toBe(false);
+    expect(canPracticeLessonSong(khaab)).toBe(false);
+    expect(canPracticeLessonSong(yellow)).toBe(true);
+  });
+
+  it("uses full chapter events while a demo is playing", () => {
+    const yellow = LESSON_SONGS.find((song) => song.id === "yellow")!;
+    const chapter = yellow.chapters[2];
+    expect(lessonPlaybackEvents(yellow.lines[0], chapter, "preview", false)).toHaveLength(4);
+    expect(lessonPlaybackEvents(yellow.lines[0], chapter, "preview", true)).toHaveLength(6);
+  });
+
+  it("schedules Twinkle's backing chord bed at the same phrase beats used by reference playback", () => {
+    const twinkle = LESSON_SONGS.find((song) => song.id === "twinkle-twinkle")!;
+    const chapter = twinkle.chapters[2];
+
+    expect(lessonBackingChordEvents(twinkle.lines[0], chapter)).toEqual([
+      { chord: "C", beat: 0, durationBeats: 8 / 3 },
+      { chord: "F", beat: 8 / 3, durationBeats: 8 / 3 },
+      { chord: "C", beat: 16 / 3, durationBeats: 8 / 3 },
+    ]);
   });
 });

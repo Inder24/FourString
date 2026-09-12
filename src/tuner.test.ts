@@ -18,6 +18,11 @@ describe("tuner pitch analysis", () => {
     expect(signalRms(new Float32Array(4096))).toBe(0);
   });
 
+  it("detects melody notes through the twelfth fret", () => {
+    expect(detectPitch(sine(523.25), 48_000)?.frequency).toBeCloseTo(523.25, 0);
+    expect(detectPitch(sine(880), 48_000)?.frequency).toBeCloseTo(880, 0);
+  });
+
   it("measures cents and supports an explicit string target", () => {
     const a = TUNING_TARGETS[3];
     expect(centsBetween(a.frequency, a.frequency)).toBeCloseTo(0);

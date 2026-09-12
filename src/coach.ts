@@ -4,6 +4,70 @@ import { centsBetween, type PitchReading, type TuningTarget } from "./tuner";
 export type CoachPitchGrade = "quiet" | "wrong-note" | "flat" | "sharp" | "close" | "correct";
 export type RhythmGrade = "early" | "late" | "on-time";
 
+export interface PulseGap {
+  grade: RhythmGrade | "start" | "restart";
+  gapMs: number | null;
+}
+
+/** Beginner exercise: each new interval is a fresh chance to find the pulse. */
+export class PulseDrill {
+  readonly hits: PulseGap[] = [];
+  readonly targetMs = 60_000 / 72;
+  private lastAt: number | null = null;
+
+  push(at: number): PulseGap {
+    if (this.hits.length >= 8) return this.hits[7];
+    const gapMs = this.lastAt === null ? null : at - this.lastAt;
+    const restart = gapMs !== null && gapMs > this.targetMs * 3;
+    if (restart) this.reset();
+    const hit: PulseGap = {
+      grade: restart ? "restart" : gapMs === null ? "start"
+        : Math.abs(gapMs - this.targetMs) <= this.targetMs * 0.16 ? "on-time"
+        : gapMs < this.targetMs ? "early" : "late",
+      gapMs: restart ? null : gapMs,
+    };
+    this.lastAt = at;
+    this.hits.push(hit);
+    return hit;
+  }
+
+  summary() {
+    const gaps = this.hits.filter((hit) => hit.gapMs !== null);
+    return {
+      steady: gaps.filter((hit) => hit.grade === "on-time").length,
+      early: gaps.filter((hit) => hit.grade === "early").length,
+      late: gaps.filter((hit) => hit.grade === "late").length,
+      averageGapMs: gaps.length ? Math.round(gaps.reduce((sum, hit) => sum + hit.gapMs!, 0) / gaps.length) : 0,
+    };
+  }
+
+  reset(): void {
+    this.hits.length = 0;
+    this.lastAt = null;
+  }
+}
+
+export class NoteConfirmation {
+  frames = 0;
+  private lastCorrectAt = -Infinity;
+
+  push(grade: CoachPitchGrade, at: number): boolean {
+    if (at - this.lastCorrectAt > 250) this.frames = 0;
+    if (grade === "correct") {
+      this.frames += 1;
+      this.lastCorrectAt = at;
+    } else if (grade !== "quiet") {
+      this.reset();
+    }
+    return this.frames >= 7;
+  }
+
+  reset(): void {
+    this.frames = 0;
+    this.lastCorrectAt = -Infinity;
+  }
+}
+
 export interface CoachPitchFeedback {
   grade: CoachPitchGrade;
   cents: number | null;

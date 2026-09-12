@@ -1,7 +1,25 @@
 import type { StrumDirection } from "./music";
+import { lessonTrust } from "./lesson-trust";
 
 export type ChordName = "C" | "F" | "G" | "G7" | "Am";
 export type LessonPhase = "preview" | "lines" | "full" | "complete";
+export type LessonMaterialType = "melody" | "accompaniment" | "exercise";
+export type LessonSourceStatus = "source-backed" | "original" | "unverified";
+
+export interface LessonSource {
+  title: string;
+  url: string;
+  supports: string;
+}
+
+export interface LessonProvenance {
+  type: LessonMaterialType;
+  tuning: readonly ["G4", "C4", "E4", "A4"];
+  arrangementVersion: string;
+  status: LessonSourceStatus;
+  sources: readonly LessonSource[];
+  playable: boolean;
+}
 
 export interface LessonChord {
   name: ChordName;
@@ -36,8 +54,14 @@ export interface LessonChapter {
   backing?: boolean;
 }
 
+export interface LessonBackingChordEvent {
+  chord: ChordName;
+  beat: number;
+  durationBeats: number;
+}
+
 export interface LessonSong {
-  id: "lathe-di-chadar" | "khaab" | "sargam" | "twinkle-twinkle";
+  id: "lathe-di-chadar" | "khaab" | "sargam" | "twinkle-twinkle" | "yellow" | "im-yours";
   title: string;
   artist: string;
   genre: string;
@@ -50,6 +74,7 @@ export interface LessonSong {
   skillLabel?: string;
   lines: readonly SongLine[];
   chapters: readonly LessonChapter[];
+  provenance: LessonProvenance;
 }
 
 export const LESSON_CHORDS: Readonly<Record<ChordName, LessonChord>> = {
@@ -211,14 +236,94 @@ const TWINKLE_CHAPTERS: readonly LessonChapter[] = [
   },
 ] as const;
 
+const YELLOW_CHAPTERS: readonly LessonChapter[] = [
+  {
+    id: 1,
+    shortTitle: "Verse pulse",
+    title: "Place the three verse chords",
+    description: "Learn the beginner C–G–F movement with one relaxed down-strum on every beat. Let each chord ring before the next change.",
+    bpm: 68,
+    guidedPattern: "D · D · D · D",
+    fullPattern: "D · D · D · D",
+    guidedEvents: strums(["down", "down", "down", "down"]),
+    fullEvents: strums(["down", "down", "down", "down"]),
+  },
+  {
+    id: 2,
+    shortTitle: "Starry picking",
+    title: "Turn each chord into four clear notes",
+    description: "Hold the same shapes and pick strings 3, 2, 1, 2. Keep the top note light so the chord change stays calm and spacious.",
+    bpm: 76,
+    guidedPattern: "3 · 2 · 1 · 2",
+    fullPattern: "3 · 2 · 1 · 2",
+    guidedEvents: plucks([1, 2, 3, 2]),
+    fullEvents: plucks([1, 2, 3, 2]),
+  },
+  {
+    id: 3,
+    shortTitle: "Island glow",
+    title: "Open the chorus into an island strum",
+    description: "Begin with D · D-U · U, then add the final D-U. Keep your hand travelling through the silent spaces.",
+    bpm: 87,
+    guidedPattern: "D · D-U · U",
+    fullPattern: "D · D-U · U-D-U",
+    guidedEvents: liftedGuide(),
+    fullEvents: flowingStrum(),
+  },
+] as const;
+
+const IM_YOURS_CHAPTERS: readonly LessonChapter[] = [
+  {
+    id: 1,
+    shortTitle: "Four-chord loop",
+    title: "Make C–G–Am–F feel automatic",
+    description: "Give each chord four steady down-strums. Prepare the next shape early and keep the final F as relaxed as the opening C.",
+    bpm: 60,
+    guidedPattern: "D · D · D · D",
+    fullPattern: "D · D · D · D",
+    guidedEvents: strums(["down", "down", "down", "down"]),
+    fullEvents: strums(["down", "down", "down", "down"]),
+  },
+  {
+    id: 2,
+    shortTitle: "Sunny picking",
+    title: "Hear the loop one string at a time",
+    description: "Pick strings 3, 2, 1, 2 over every chord. The pattern stays unchanged while the C–G–Am–F harmony moves beneath it.",
+    bpm: 66,
+    guidedPattern: "3 · 2 · 1 · 2",
+    fullPattern: "3 · 2 · 1 · 2",
+    guidedEvents: plucks([1, 2, 3, 2]),
+    fullEvents: plucks([1, 2, 3, 2]),
+  },
+  {
+    id: 3,
+    shortTitle: "Island strum",
+    title: "Add the familiar laid-back bounce",
+    description: "Learn D · D-U · U first, then complete D · D-U · U-D-U. The empty eighth-note spaces create the groove.",
+    bpm: 70,
+    guidedPattern: "D · D-U · U",
+    fullPattern: "D · D-U · U-D-U",
+    guidedEvents: liftedGuide(),
+    fullEvents: flowingStrum(),
+  },
+] as const;
+
 export const LESSON_SONGS: readonly LessonSong[] = [
   {
     id: "lathe-di-chadar",
+    provenance: {
+      type: "accompaniment",
+      tuning: ["G4", "C4", "E4", "A4"],
+      arrangementVersion: "Four Strings study v1.0",
+      status: "unverified",
+      sources: [],
+      playable: false,
+    },
     title: "Lathe Di Chadar",
     artist: "Punjabi folk",
     genre: "Wedding folk",
     rights: "Traditional",
-    rightsDetail: "Traditional folk excerpt · original Four Strings arrangement",
+    rightsDetail: "Unverified Four Strings folk study · not the original recording or melody",
     key: "C",
     meter: "4/4",
     beatsPerBar: 4,
@@ -233,11 +338,19 @@ export const LESSON_SONGS: readonly LessonSong[] = [
   },
   {
     id: "khaab",
+    provenance: {
+      type: "accompaniment",
+      tuning: ["G4", "C4", "E4", "A4"],
+      arrangementVersion: "Four Strings study v1.0",
+      status: "unverified",
+      sources: [],
+      playable: false,
+    },
     title: "Khaab",
     artist: "Akhil · 2016",
     genre: "Punjabi pop",
     rights: "Chord study",
-    rightsDetail: "Copyright-safe accompaniment study · lyrics and melody not included",
+    rightsDetail: "Unverified lyric-free chord study · lyrics and melody not included · not the original recording or melody",
     key: "Am / C",
     meter: "4/4",
     beatsPerBar: 4,
@@ -252,6 +365,14 @@ export const LESSON_SONGS: readonly LessonSong[] = [
   },
   {
     id: "sargam",
+    provenance: {
+      type: "exercise",
+      tuning: ["G4", "C4", "E4", "A4"],
+      arrangementVersion: "Four Strings C-major ascent v1.0",
+      status: "original",
+      sources: [],
+      playable: true,
+    },
     title: "Sa Re Ga Ma",
     artist: "Indian solfege starter",
     genre: "Fingerpicking warm-up",
@@ -272,6 +393,25 @@ export const LESSON_SONGS: readonly LessonSong[] = [
   },
   {
     id: "twinkle-twinkle",
+    provenance: {
+      type: "melody",
+      tuning: ["G4", "C4", "E4", "A4"],
+      arrangementVersion: "Four Strings beginner melody v1.0",
+      status: "source-backed",
+      playable: true,
+      sources: [
+        {
+          title: "3 Easy Songs You Can Fingerpick on Ukulele Today",
+          url: "https://ukuleletricks.com/ukulele-fingerpicking-nursery-rhymes/",
+          supports: "Twinkle as a beginner solo fingerpicking piece with a simple quarter-note rhythm and open strings.",
+        },
+        {
+          title: "Lesson 2: Master Smooth Chord Changes",
+          url: "https://ukuleletricks.com/learn-to-play-ukulele/lesson-2-master-smooth-chord-changes/",
+          supports: "C, F and G7 chord shapes and their use in a beginner Twinkle chord-change lesson.",
+        },
+      ],
+    },
     title: "Twinkle Twinkle",
     artist: "Traditional",
     genre: "First melody",
@@ -310,6 +450,79 @@ export const LESSON_SONGS: readonly LessonSong[] = [
     ],
     chapters: TWINKLE_CHAPTERS,
   },
+  {
+    id: "yellow",
+    provenance: {
+      type: "accompaniment",
+      tuning: ["G4", "C4", "E4", "A4"],
+      arrangementVersion: "Four Strings lyric-free chord study v1.0",
+      status: "source-backed",
+      playable: true,
+      sources: [
+        {
+          title: "Yellow by Coldplay — Ukulele Chords & Tabs",
+          url: "https://ukutabs.com/c/coldplay/yellow/",
+          supports: "A rookie gCEA arrangement in C, the C–G–F verse, F–Am–G chorus, island strum and approximately 87 BPM.",
+        },
+      ],
+    },
+    title: "Yellow",
+    artist: "Coldplay · 2000",
+    genre: "Alternative rock",
+    rights: "Chord study",
+    rightsDetail: "Lyric-free accompaniment study in C · not the original recording or melody",
+    key: "C",
+    meter: "4/4",
+    beatsPerBar: 4,
+    searchTerms: "yellow coldplay rock pop stars beginner island strum chord study",
+    skillLabel: "C · G · F · Am",
+    lines: [
+      { label: "Verse A · open the phrase", native: "Begin softly on C", chords: ["C"] },
+      { label: "Verse B · add the lift", native: "Move cleanly to G", chords: ["G"] },
+      { label: "Verse C · let it settle", native: "Resolve the verse on F", chords: ["F"] },
+      { label: "Chorus turn · widen the sound", native: "Connect F → Am → G", chords: ["F", "Am", "G"] },
+    ],
+    chapters: YELLOW_CHAPTERS,
+  },
+  {
+    id: "im-yours",
+    provenance: {
+      type: "accompaniment",
+      tuning: ["G4", "C4", "E4", "A4"],
+      arrangementVersion: "Four Strings lyric-free chord study v1.0",
+      status: "source-backed",
+      playable: true,
+      sources: [
+        {
+          title: "I’m Yours — Ukulele Chords and Tutorial",
+          url: "https://acousticbridge.com/im-yours-ukulele-chords/",
+          supports: "The beginner transposition to C and its repeating C–G–Am–F harmony; the original recording does not feature ukulele.",
+        },
+        {
+          title: "I’m Yours Ukulele Tutorial — Jason Mraz",
+          url: "https://raysukulele.com/ukulele-tutorials/im-yours-jason-mraz/",
+          supports: "Standard GCEA tuning, the C–G–Am–F progression and the D–D-U–U-D-U island strum.",
+        },
+      ],
+    },
+    title: "I’m Yours",
+    artist: "Jason Mraz · 2008",
+    genre: "Acoustic pop",
+    rights: "Chord study",
+    rightsDetail: "Lyric-free C–G–Am–F accompaniment study · lyrics and melody not included · not the original recording or melody",
+    key: "C",
+    meter: "4/4",
+    beatsPerBar: 4,
+    searchTerms: "i'm yours im yours jason mraz acoustic pop beginner island strum chord study",
+    skillLabel: "C · G · Am · F",
+    lines: [
+      { label: "Loop step 1 · find home", native: "Begin on C", chords: ["C"] },
+      { label: "Loop step 2 · create lift", native: "Move to G", chords: ["G"] },
+      { label: "Loop step 3 · soften the colour", native: "Move to A minor", chords: ["Am"] },
+      { label: "Loop step 4 · complete the cycle", native: "Resolve on F, then return to C", chords: ["F"] },
+    ],
+    chapters: IM_YOURS_CHAPTERS,
+  },
 ] as const;
 
 export function lessonEvents(chapter: LessonChapter, phase: LessonPhase): readonly LessonGesture[] {
@@ -328,11 +541,26 @@ export function lessonLineEvents(
   return isMelodyChapter(chapter) ? line.notes ?? [] : lessonEvents(chapter, phase);
 }
 
+export function lessonPlaybackEvents(
+  line: SongLine,
+  chapter: LessonChapter,
+  phase: LessonPhase,
+  demoPlaying: boolean,
+): readonly LessonGesture[] {
+  return lessonLineEvents(line, chapter, demoPlaying ? "full" : phase === "preview" ? "lines" : phase);
+}
+
 export function lessonLineBeats(line: SongLine, chapter: LessonChapter): number {
   if (!isMelodyChapter(chapter)) return Math.max(1, line.chords.length) * 4;
   if (line.beats) return line.beats;
   const notes = line.notes ?? [];
   return Math.max(1, ...notes.map((note) => note.beat + (note.durationBeats ?? 1)));
+}
+
+export function lessonBackingChordEvents(line: SongLine, chapter: LessonChapter): LessonBackingChordEvent[] {
+  if (!isMelodyChapter(chapter) || !chapter.backing || line.chords.length === 0) return [];
+  const durationBeats = lessonLineBeats(line, chapter) / line.chords.length;
+  return line.chords.map((chord, index) => ({ chord, beat: index * durationBeats, durationBeats }));
 }
 
 export function matchesChord(frets: readonly number[], chord: ChordName): boolean {
@@ -352,6 +580,10 @@ export function filterLessonSongs(query: string): LessonSong[] {
   return LESSON_SONGS.filter((song) =>
     `${song.title} ${song.artist} ${song.genre} ${song.searchTerms}`.toLocaleLowerCase().includes(normalized),
   );
+}
+
+export function canPracticeLessonSong(song: LessonSong): boolean {
+  return song.provenance.playable && lessonTrust(song).status !== "unverified";
 }
 
 type MelodyTuple = readonly [

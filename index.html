@@ -56,9 +56,9 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2M9 3h6"/></svg>
               Practice
             </button>
-            <button class="mode-button" id="mode-coach" type="button" aria-pressed="false">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h2l1.5-5 3 10 3-13 2.5 8H20"/><path d="M4 20h16"/></svg>
-              Coach
+            <button class="mode-button" id="mode-ai-coach" type="button" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13h2l1.5-5 3 10 3-13 2.5 8H20"/><path d="m18 4 .6 1.4L20 6l-1.4.6L18 8l-.6-1.4L16 6l1.4-.6L18 4Z"/></svg>
+              AI Coach
             </button>
             <button class="mode-button" id="mode-tuner" type="button" aria-pressed="false">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M4.5 12a7.5 7.5 0 0 1 15 0M12 5V3m0 18v-2m7-7h2M3 12h2"/></svg>
@@ -122,8 +122,9 @@
           <div class="subnav-switch" role="group" aria-label="Practice type">
             <button class="is-selected" id="mode-practice" type="button" aria-pressed="true">10-minute session</button>
             <button id="mode-chapters" type="button" aria-pressed="false">Songs</button>
+            <button id="mode-coach" type="button" aria-pressed="false">Quick drills</button>
           </div>
-          <span class="subnav-note">A guided path today, a song when you want one.</span>
+          <span class="subnav-note">A guided session, a song, or a quick check of your strings and pulse.</span>
         </nav>
 
         <section class="practice-input-choice instrument-source-choice" id="instrument-source-choice" aria-label="Choose an instrument" hidden>
@@ -286,6 +287,7 @@
               <div class="echo-string" data-coach-string="3"><span>1</span><strong>A</strong><i></i><small>waiting</small></div>
             </div>
 
+            <p class="coach-acceptance" id="coach-acceptance" role="status" hidden></p>
             <div class="coach-reading">
               <span class="coach-heard-label">Heard</span>
               <strong id="coach-heard-note">—</strong>
@@ -293,7 +295,7 @@
             </div>
 
             <div class="coach-hold" id="coach-hold" aria-label="Steady note progress">
-              <span>Hold it steady</span>
+              <span>Let it ring</span>
               <div aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
             </div>
 
@@ -308,6 +310,190 @@
             </div>
             <p class="coach-status" id="coach-status" aria-live="polite">Choose a drill, then start coaching.</p>
           </div>
+        </section>
+
+        <section class="ai-coach-workbench" id="ai-coach-workbench" aria-labelledby="ai-coach-title" data-phase="setup" hidden>
+          <header class="ai-coach-header">
+            <div>
+              <span class="section-kicker">Adaptive rhythm · real ukulele</span>
+              <h2 id="ai-coach-title">One correction. One better take.</h2>
+              <p>Watch the wrist, hear the rhythm, then let Astra turn your timing into one focused retry.</p>
+            </div>
+            <div class="ai-attribution">
+              <span class="ai-powered-by">Powered by GPT-6 Astra</span>
+              <span class="ai-connection" id="ai-connection" data-state="checking">
+                <i aria-hidden="true"></i><span>Checking Astra…</span>
+              </span>
+            </div>
+          </header>
+
+          <div class="ai-patterns" role="group" aria-label="Choose a rhythm exercise">
+            <button class="ai-pattern is-selected" data-ai-pattern="steady-downs" type="button" aria-pressed="true">
+              <span>01 · Start here</span>
+              <strong>Steady downs</strong>
+              <small>D · D · D · D</small>
+            </button>
+            <button class="ai-pattern" data-ai-pattern="alternating-pulse" type="button" aria-pressed="false">
+              <span>02 · Build control</span>
+              <strong>Alternating pulse</strong>
+              <small>D U D U D U D U</small>
+            </button>
+            <button class="ai-pattern" data-ai-pattern="island-rhythm" type="button" aria-pressed="false">
+              <span>03 · Add syncopation</span>
+              <strong>Island rhythm</strong>
+              <small>D – D U – U D U</small>
+            </button>
+          </div>
+
+          <div class="ai-coach-stage">
+            <section class="ai-performance" aria-labelledby="ai-stage-title">
+              <header class="ai-performance-head">
+                <div>
+                  <span class="ai-stage-label" id="ai-stage-label">Ready when you are</span>
+                  <h3 id="ai-stage-title">Make every beat feel equal.</h3>
+                  <p id="ai-stage-copy">First hear two bars at 70 BPM. Your microphone starts only after the count-in.</p>
+                </div>
+                <div class="ai-tempo-orb" aria-label="Exercise tempo">
+                  <strong id="ai-tempo">70</strong><span>BPM</span>
+                </div>
+              </header>
+
+              <p class="ai-tempo-context" id="ai-tempo-context">Original example · 70 BPM</p>
+              <label class="ai-click-option"><input id="ai-chord-changes" type="checkbox" /><span><strong>Practise chord changes</strong><small>C → F → G → C · two beats each. Timing scored; chord shapes are a self-check.</small></span></label>
+              <div class="ai-start-cue" id="ai-start-cue" role="status" hidden><span id="ai-start-label">Get ready</span><strong id="ai-start-count">5</strong></div>
+              <section class="ai-capture-panel" id="ai-calibration" hidden aria-labelledby="ai-calibration-title">
+                <span class="section-kicker">Microphone check · local only</span>
+                <h3 id="ai-calibration-title">Hear you clearly first.</h3>
+                <p id="ai-calibration-copy" role="status">Keep quiet for a moment.</p>
+                <meter id="ai-input-level" min="0" max="0.3" value="0" aria-label="Microphone input level"></meter>
+                <div class="ai-replay-actions"><button id="ai-calibration-continue" type="button" disabled>Ready · start take</button><button id="ai-calibration-retry" type="button">Recheck microphone</button></div>
+                <small>No take is recorded here. Signal checks are estimates, not chord recognition.</small>
+              </section>
+              <section class="ai-capture-panel" id="ai-quality-problem" hidden>
+                <span class="section-kicker">Check the recording · not your playing</span>
+                <h3>Let’s get a clearer take.</h3>
+                <p id="ai-quality-message" role="status"></p>
+                <div class="ai-replay-actions"><button id="ai-quality-replay" type="button">Hear this take</button><button id="ai-quality-retry" type="button">Record again</button><button id="ai-quality-recheck" type="button">Recheck microphone</button></div>
+                <small>No timing score or Astra correction is generated for this take. It does not use a coached retry.</small>
+              </section>
+              <p class="ai-quality-status" id="ai-quality-status" role="status">Signal quality will be checked before your first take.</p>
+              <div class="ai-strumming-guide" id="ai-strumming-guide"></div>
+
+              <div class="ai-timing-string" id="ai-timing-string" aria-label="Eight-slot rhythm timeline">
+                <div class="ai-rail">
+                <div class="ai-playhead" id="ai-playhead" aria-hidden="true"></div>
+                <div class="ai-counts" aria-hidden="true">
+                  <span>1</span><span>&amp;</span><span>2</span><span>&amp;</span><span>3</span><span>&amp;</span><span>4</span><span>&amp;</span>
+                </div>
+                <div class="ai-slots" id="ai-slots"></div>
+                <div class="ai-heard-lane" id="ai-heard-lane" aria-label="Detected strums in the current loop"></div>
+                </div>
+              </div>
+
+              <div class="ai-live-strip">
+                <span class="ai-live-signal" id="ai-live-signal" data-state="idle"><i aria-hidden="true"></i>Mic off</span>
+                <p id="ai-live-status" aria-live="polite">Choose a pattern, then hear the example.</p>
+                <span id="ai-hit-count">0 heard</span>
+              </div>
+
+              <div class="ai-actions">
+                <button class="ai-action-secondary" id="ai-demo" type="button">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z"/></svg>
+                  <span>Watch &amp; hear</span>
+                </button>
+                <button class="ai-action-primary" id="ai-start" type="button" disabled>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-4a3.5 3.5 0 0 0-7 0v4A3.5 3.5 0 0 0 12 15Z"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3m-3 0h6"/></svg>
+                  <span>Start first take</span>
+                </button>
+                <button class="ai-action-quiet" id="ai-cancel" type="button" hidden>Cancel</button>
+                <button class="ai-action-secondary" id="ai-skip-wait" type="button" hidden>Continue now</button>
+                <button class="ai-action-quiet" id="ai-reset" type="button">Reset</button>
+              </div>
+
+              <label class="ai-click-option" for="ai-hear-beat">
+                <input id="ai-hear-beat" type="checkbox" />
+                <span><strong>Hear beat during take</strong><small>Use headphones so clicks do not reach the microphone.</small></span>
+              </label>
+            </section>
+
+            <aside class="ai-coach-note" id="ai-coach-note" data-state="ready">
+              <div class="ai-ready-note" id="ai-ready-note">
+                <span class="section-kicker">How this listens</span>
+                <strong>Timing, not direction.</strong>
+                <p>The arrows teach the hand motion. Four Strings measures when each strum lands, while your audio remains in this browser.</p>
+                <ol>
+                  <li><span>1</span>Watch and hear two bars</li>
+                  <li><span>2</span>Play after the count-in</li>
+                  <li><span>3</span>Fix one small section</li>
+                </ol>
+              </div>
+
+              <div class="ai-thinking" id="ai-thinking" hidden>
+                <span class="ai-thinking-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                <strong>Astra is reading the rhythm…</strong>
+                <p>Looking for the single change that will help most.</p>
+              </div>
+
+              <div class="ai-correction" id="ai-correction-panel" hidden>
+                <span class="ai-powered-by">Powered by GPT-6 Astra</span>
+                <span class="section-kicker">Your one correction</span>
+                <strong id="ai-correction">Leave a little more room before the ending.</strong>
+                <p id="ai-evidence">The last two strokes arrived early.</p>
+                <div class="ai-retry-recipe">
+                  <span><small>Slow to</small><strong id="ai-retry-tempo">60 BPM</strong></span>
+                  <span><small>Loop</small><strong id="ai-retry-loop">beats 3–4</strong></span>
+                  <span><small>Repeat</small><strong id="ai-retry-repetitions">3×</strong></span>
+                </div>
+                <div class="ai-countdown" id="ai-countdown" hidden>
+                  <span>Read your correction · slow demonstration in</span><strong id="ai-countdown-value">10</strong>
+                </div>
+                <button class="ai-inline-action" id="ai-watch-focus" type="button" hidden>Watch correction again</button>
+                <button class="ai-inline-action" id="ai-explain-focus" type="button">Explain a measured mistake</button>
+                <button class="ai-inline-action" id="ai-retry-now" type="button" hidden>Start focused retry</button>
+              </div>
+
+              <div class="ai-comparison" id="ai-comparison" hidden>
+                <span class="section-kicker">Before · after</span>
+                <strong id="ai-comparison-title">That section settled.</strong>
+                <p id="ai-comparison-copy">Your timing moved closer to the pulse.</p>
+                <div id="ai-comparison-traces" class="ai-comparison-traces"></div>
+                <small>Timing score below includes missed-strum penalties; select a peak above for its measured offset.</small>
+                <div class="ai-compare-rail">
+                  <span><small>First take</small><strong id="ai-before-error">—</strong><i><b id="ai-before-bar"></b></i></span>
+                  <span><small>New take</small><strong id="ai-after-error">—</strong><i><b id="ai-after-bar"></b></i></span>
+                </div>
+                <div class="ai-compare-stats">
+                  <span><strong id="ai-on-time-change">—</strong><small>on-time</small></span>
+                  <span><strong id="ai-missed-count">—</strong><small>missed</small></span>
+                  <span><strong id="ai-extra-count">—</strong><small>extra</small></span>
+                </div>
+                <div class="ai-replay-actions">
+                  <button id="ai-play-first" type="button" disabled>Hear first take</button>
+                  <button id="ai-play-new" type="button" disabled>Hear new take</button>
+                </div>
+                <button class="ai-inline-action" id="ai-continue" type="button">Try full pattern</button>
+              </div>
+
+              <section class="ai-mistake-panel" id="ai-mistake-panel" hidden aria-labelledby="ai-mistake-title">
+                <span class="section-kicker">Local timing analysis</span>
+                <h3 id="ai-mistake-title">One beat, understood.</h3>
+                <p id="ai-mistake-evidence"></p><small id="ai-mistake-range"></small>
+                <button class="ai-inline-action" id="ai-mistake-explain" type="button">Explain this mistake</button>
+                <span id="ai-mistake-attribution" class="ai-powered-by" hidden>Powered by GPT-6 Astra</span>
+                <p id="ai-mistake-answer" role="status"></p><small id="ai-mistake-recipe"></small>
+                <label class="ai-mistake-speed">Slower example <select id="ai-mistake-tempo" aria-label="Slower demonstration tempo"></select></label>
+                <div class="ai-replay-actions"><button id="ai-mistake-demo" type="button">Hear slower passage</button><button id="ai-mistake-replay" type="button">Hear my passage</button><button id="ai-mistake-stop" type="button" disabled>Stop</button></div>
+                <p id="ai-mistake-status" role="status"></p>
+              </section>
+              <div class="ai-error-note" id="ai-error-note" hidden>
+                <span class="section-kicker">Take saved in this session</span>
+                <strong>Analysis paused.</strong>
+                <p id="ai-error-message">Astra could not be reached.</p>
+                <button class="ai-inline-action" id="ai-retry-analysis" type="button">Retry analysis</button>
+              </div>
+            </aside>
+          </div>
+          <p class="ai-privacy-note">Your recording stays in browser memory. Only timing measurements are sent to Astra.</p>
         </section>
 
         <section class="practice-workbench" id="practice-workbench" aria-labelledby="practice-title" data-session="idle" hidden>
@@ -412,12 +598,33 @@
 
         <section class="lesson-workbench" id="lesson-workbench" aria-labelledby="lesson-song-title" hidden>
           <div class="song-browser">
-            <label class="song-search" for="song-search">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4 4"/></svg>
-              <span class="sr-only">Search songs</span>
-              <input id="song-search" type="search" placeholder="Search songs, artists or styles" autocomplete="off" />
-              <kbd>/</kbd>
-            </label>
+            <div class="lesson-library-tools">
+              <label class="song-search" for="song-search">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4 4"/></svg>
+                <span class="sr-only">Search songs</span>
+                <input id="song-search" type="search" placeholder="Search songs, artists or styles" autocomplete="off" />
+                <kbd>/</kbd>
+              </label>
+              <div class="lesson-library-filters" aria-label="Filter lessons">
+                <label>
+                  <span>Source</span>
+                  <select id="lesson-status-filter">
+                    <option value="all">All</option>
+                    <option value="source-backed">Source-backed</option>
+                    <option value="original">Original</option>
+                    <option value="unverified">Unverified</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Material</span>
+                  <select id="lesson-type-filter">
+                    <option value="all">All</option>
+                    <option value="melody">Melody</option>
+                    <option value="accompaniment">Accompaniment</option>
+                  </select>
+                </label>
+              </div>
+            </div>
             <div class="song-results" id="song-results" role="group" aria-label="Available songs"></div>
           </div>
 
@@ -435,6 +642,37 @@
               <button class="lesson-button" id="lesson-practice" type="button">Start practice</button>
             </div>
           </header>
+
+          <details class="lesson-provenance" id="lesson-provenance">
+            <summary>
+              <span class="lesson-trust-label" id="lesson-trust-label">Unverified</span>
+              <span>Sources &amp; practice data</span>
+            </summary>
+            <div class="lesson-provenance-body">
+              <dl>
+                <div><dt>Material</dt><dd id="lesson-material-type">Accompaniment</dd></div>
+                <div><dt>Tuning</dt><dd id="lesson-tuning">G4 · C4 · E4 · A4</dd></div>
+                <div><dt>Key</dt><dd id="lesson-source-key">C</dd></div>
+                <div><dt>Arrangement</dt><dd id="lesson-arrangement-version">Four Strings study v1.0</dd></div>
+              </dl>
+              <p class="lesson-source-note" id="lesson-source-note">No reliable source is attached, so this study remains blocked.</p>
+              <ul class="lesson-source-list" id="lesson-source-list"></ul>
+              <button class="lesson-download" id="lesson-download" type="button">Download practice JSON</button>
+            </div>
+          </details>
+
+          <section class="lesson-input" aria-label="Song input source">
+            <div role="group" aria-label="Play songs using">
+              <button id="lesson-input-screen" class="is-selected" type="button" aria-pressed="true">On-screen ukulele</button>
+              <button id="lesson-input-real" type="button" aria-pressed="false">Real ukulele</button>
+            </div>
+            <p id="lesson-input-note">Use the instrument below; Four Strings checks the exact string, fret, shape, and direction.</p>
+            <div class="lesson-real-checks" id="lesson-real-checks" hidden>
+              <label><input id="lesson-shape-check" type="checkbox" /> I formed the shown chord shape</label>
+              <label><input id="lesson-direction-check" type="checkbox" /> I used the shown strum direction</label>
+            </div>
+            <p class="lesson-heard-status" id="lesson-heard-status" data-state="idle" aria-live="polite">Expected and heard notes will appear here.</p>
+          </section>
 
           <section class="lesson-cue" id="lesson-cue" data-state="ready" data-feedback="neutral" aria-label="Current lesson cue">
             <div class="lesson-cue-context">
@@ -492,7 +730,7 @@
             </article>
           </section>
 
-          <section class="lesson-take" aria-label="Saved lesson take">
+          <section class="lesson-take" id="lesson-take" aria-label="Saved lesson take">
             <div class="lesson-take-copy">
               <span class="section-kicker">My take</span>
               <strong id="lesson-take-status">No take saved for this chapter</strong>
