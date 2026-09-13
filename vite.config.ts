@@ -19,6 +19,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [adaptiveCoachApi()],
+    build: { outDir: 'dist/client' },
     server: {
       host: "127.0.0.1",
       port: 4173,

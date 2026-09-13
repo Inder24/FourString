@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { nodeMiddleware, jsonResponse, readRequestJson } from "./http-transport";
 import { assessCaptureQuality, sanitizeCaptureEvidence } from "../src/capture-quality";
 import {
   rhythmPattern,
@@ -20,34 +21,33 @@ interface OpenAIResponse {
 }
 
 export function createAdaptiveCoachMiddleware(apiKey: string) {
-  return async (request: IncomingMessage, response: ServerResponse, next: () => void): Promise<void> => {
-    const path = request.url?.split("?")[0];
+  return nodeMiddleware(createAdaptiveCoachHandler(apiKey), ['/api/adaptive-coach', '/api/adaptive-coach/status']);
+}
+
+export function createAdaptiveCoachHandler(apiKey: string) {
+  return async (request: Request): Promise<Response | null> => {
+    const path = new URL(request.url).pathname;
     if (path === "/api/adaptive-coach/status") {
-      sendJson(response, 200, { configured: Boolean(apiKey) });
-      return;
+      return jsonResponse(200, { configured: Boolean(apiKey) });
     }
     if (path !== "/api/adaptive-coach") {
-      next();
-      return;
+      return null;
     }
     if (request.method !== "POST") {
-      sendJson(response, 405, { error: "Method not allowed." });
-      return;
+      return jsonResponse(405, { error: "Method not allowed." });
     }
     if (!apiKey) {
-      sendJson(response, 503, { error: "Add OPENAI_API_KEY to .env.local, then restart Vite." });
-      return;
+      return jsonResponse(503, { error: "Add OPENAI_API_KEY to .env.local, then restart Vite." });
     }
 
     let summary: CoachAttemptSummary;
     try {
-      const body = await readJsonBody(request, 20_000);
+      const body = await readRequestJson(request, 20_000);
       const sanitized = sanitizeCoachAttemptSummary(body);
       if (!sanitized) throw new Error("Invalid attempt summary.");
       summary = sanitized;
     } catch (error) {
-      sendJson(response, 400, { error: error instanceof Error ? error.message : "Invalid request." });
-      return;
+      return jsonResponse(400, { error: error instanceof Error ? error.message : "Invalid request." });
     }
 
     const controller = new AbortController();
@@ -80,7 +80,7 @@ export function createAdaptiveCoachMiddleware(apiKey: string) {
           tool_choice: { type: "function", name: "configure_retry" },
           parallel_tool_calls: false,
         }),
-        signal: controller.signal,
+        signal: AbortSignal.any([controller.signal, request.signal]),
       });
       const payload = await apiResponse.json() as OpenAIResponse;
       if (!apiResponse.ok) {
@@ -89,17 +89,15 @@ export function createAdaptiveCoachMiddleware(apiKey: string) {
           : apiResponse.status === 429
             ? "Astra is busy or the API limit was reached. Wait a moment, then retry analysis."
             : "Astra could not analyse this take. Retry in a moment.";
-        sendJson(response, apiResponse.status, { error: message });
-        return;
-      }
+        return jsonResponse(apiResponse.status, { error: message });
+        }
       const decision = extractCoachingDecision(payload, summary.patternId);
       if (!decision || decision.retryBpm > summary.bpm) {
-        sendJson(response, 502, { error: "Astra returned an unusable coaching plan. Retry analysis." });
-        return;
-      }
-      sendJson(response, 200, { decision });
+        return jsonResponse(502, { error: "Astra returned an unusable coaching plan. Retry analysis." });
+        }
+      return jsonResponse(200, { decision });
     } catch (error) {
-      sendJson(response, 504, {
+      return jsonResponse(504, {
         error: error instanceof DOMException && error.name === "AbortError"
           ? "Astra took too long to answer. Your take is safe—retry analysis."
           : "Astra could not be reached. Check your connection and retry analysis.",
