@@ -1833,6 +1833,12 @@ input[type="range"]:focus-visible {
 .tempo-choice button.is-selected { color: var(--parchment-raised); background: var(--rosewood); }
 .tempo-subdivision { display: flex; align-items: center; gap: 9px; min-height: 44px; margin: 8px 0; color: var(--ink-secondary); font-size: 12px; cursor: pointer; }
 .tempo-subdivision input, .practice-tempo-actions input { width: 17px; height: 17px; accent-color: var(--plucked-coral); }
+.tempo-variation { max-width: 430px; margin-top: 12px; padding: 10px 14px; border-radius: 12px; background: var(--control-inset); }
+.tempo-variation .tempo-subdivision { margin: 0; color: var(--ink); font-weight: 720; }
+.tempo-variation-cycle { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 4px 0 8px; color: var(--ink-secondary); font-size: 11px; }
+.tempo-variation-cycle select { min-height: 40px; padding: 0 12px; border: 1px solid var(--quiet-line); border-radius: 8px; color: var(--ink); background: var(--parchment-raised); font: inherit; cursor: pointer; }
+.tempo-variation-cycle select:focus-visible, .tempo-variation input:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+#tempo-variation-status { margin: 0; color: var(--ink-tertiary); font-size: 10px; line-height: 1.45; font-variant-numeric: tabular-nums; }
 .tempo-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .tempo-start { min-height: 48px; min-width: 150px; border: 0; border-radius: 10px; color: var(--parchment-raised); background: var(--plucked-coral); font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
 .tempo-tap { background: var(--control-inset); }
@@ -3665,6 +3671,18 @@ input[type="range"]:focus-visible {
   gap: 12px;
 }
 
+.lesson-score { min-width: 0; padding: 14px; border-radius: 14px; background: rgba(255,255,255,.28); }
+.lesson-score-link { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; margin-top: 5px; color: var(--plucked-coral); font-size: 11px; font-weight: 760; text-decoration: none; }
+.lesson-score-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.lesson-score-link:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; border-radius: 4px; }
+#lesson-score { scroll-margin-top: 24px; }
+.lesson-score-heading { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+.lesson-score-heading .section-kicker { font-size: 9px; }
+.lesson-score-heading h3 { margin: 3px 0 0; color: var(--ink); font-family: "Fraunces Variable", serif; font-size: 20px; line-height: 1.15; }
+#lesson-arrangement-summary { color: var(--ink-secondary); font-size: 10px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.lesson-score-note { margin: 0 0 11px; color: var(--ink-tertiary); font-size: 10px; line-height: 1.45; }
+.lesson-line.is-later { opacity: .68; }
+
 .lesson-technique {
   padding: 20px;
   border-radius: 14px;
@@ -3843,10 +3861,6 @@ input[type="range"]:focus-visible {
   opacity: 1;
 }
 
-.lesson-workbench[data-phase="preview"] .lesson-line:not(.is-current),
-.lesson-workbench[data-phase="lines"] .lesson-line:not(.is-current) {
-  display: none;
-}
 
 .tuner-target:hover,
 .song-result:hover,
@@ -4756,26 +4770,7 @@ body.is-focus-mode .strum-surface {
     transform: none;
   }
 
-  .lesson-workbench[data-phase="lines"] .lesson-line:not(.is-current) {
-    display: none;
-  }
-
-  .lesson-workbench[data-phase="full"] .lesson-lines {
-    display: flex;
-    min-width: 0;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scrollbar-width: none;
-  }
-
-  .lesson-workbench[data-phase="full"] .lesson-lines::-webkit-scrollbar {
-    display: none;
-  }
-
-  .lesson-workbench[data-phase="full"] .lesson-line {
-    min-width: 278px;
-    flex: 0 0 278px;
-  }
+  .lesson-score { padding: 12px; }
 
   body[data-app-view="chapters"] .workbench-heading,
   body[data-app-view="tuner"] .workbench-heading,

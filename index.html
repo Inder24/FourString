@@ -245,6 +245,14 @@
               <button id="tempo-click" type="button" aria-pressed="false">Click</button>
             </div>
             <label class="tempo-subdivision"><input id="tempo-eighths" type="checkbox" /> Add &amp; beats between the numbers</label>
+            <div class="tempo-variation">
+              <label class="tempo-subdivision" for="tempo-variation"><input id="tempo-variation" type="checkbox" /> Gentle variation</label>
+              <div class="tempo-variation-cycle">
+                <label for="tempo-variation-cycle">Change every</label>
+                <select id="tempo-variation-cycle" aria-label="Change every"><option value="4">4 beats</option><option value="8">8 beats</option></select>
+              </div>
+              <p id="tempo-variation-status">Steady at your chosen tempo.</p>
+            </div>
             <div class="tempo-actions">
               <button class="tempo-start" id="tempo-start" type="button">Start beat</button>
               <button class="tempo-tap" id="tempo-tap" type="button">Tap tempo</button>
@@ -715,6 +723,7 @@
               <span class="section-kicker" id="lesson-rights">Traditional folk · original arrangement</span>
               <h2 id="lesson-song-title">Lathe Di Chadar</h2>
               <p id="lesson-song-meta">Punjabi folk · Key of C · 4/4 · C, Am, F &amp; G</p>
+              <a class="lesson-score-link" href="#lesson-score">See full arrangement <span aria-hidden="true">↘</span></a>
             </div>
             <div class="lesson-actions">
               <button class="lesson-button lesson-button-secondary" id="lesson-demo" type="button">
@@ -842,7 +851,14 @@
               </div>
               <p class="lesson-status" id="lesson-status" aria-live="polite">Hear the example, then start when you feel the pulse.</p>
             </div>
-            <ol class="lesson-lines" id="lesson-lines" aria-label="Verse one practice lines"></ol>
+            <section class="lesson-score" id="lesson-score" aria-labelledby="lesson-score-title">
+              <div class="lesson-score-heading">
+                <div><span class="section-kicker">See the whole path</span><h3 id="lesson-score-title">Full practice arrangement</h3></div>
+                <span id="lesson-arrangement-summary">4 phrases</span>
+              </div>
+              <p class="lesson-score-note">All mapped parts are shown here from the start. This study may be an excerpt of the original song.</p>
+              <ol class="lesson-lines" id="lesson-lines" aria-label="Full practice arrangement"></ol>
+            </section>
           </div>
         </section>
 

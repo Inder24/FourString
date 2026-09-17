@@ -19,7 +19,12 @@ async function playOpeningFour(page: import('@playwright/test').Page): Promise<v
 
 test('Hedwig chapter 1 teaches only its four-note motif, then completes', async ({ page }) => {
   await openHedwig(page);
-  await expect(page.locator('.lesson-line')).toHaveCount(1);
+  await expect(page.locator('.lesson-line')).toHaveCount(4);
+  await expect(page.locator('#lesson-arrangement-summary')).toContainText('14 notes');
+  await expect(page.locator('.lesson-line').nth(1)).toBeVisible();
+  await expect(page.locator('.lesson-note')).toHaveCount(14);
+  await page.getByRole('link', { name: 'See full arrangement' }).click();
+  await expect(page).toHaveURL(/#lesson-score$/);
   await expect(page.getByRole('button', { name: 'Hear 4-note demo' })).toBeVisible();
   await page.getByRole('button', { name: 'Hear 4-note demo' }).click();
   await page.getByRole('button', { name: 'Stop demo' }).click();

@@ -34,6 +34,20 @@ export class BeatSchedule {
     this.bpm = Math.max(40, Math.min(220, Math.round(bpm)));
     if (this.running) this.start(at);
   }
+
+  retimeNextBeat(bpm: number, afterBeatAt: number): void {
+    this.bpm = Math.max(40, Math.min(220, Math.round(bpm)));
+    if (this.running) this.nextAt = afterBeatAt + 60 / this.bpm;
+  }
+}
+
+export function nextGentleTempo(current: number, base: number, random: () => number = Math.random): number {
+  const step = 2 + Math.floor(random() * 3);
+  const direction = random() < .5 ? -1 : 1;
+  const low = Math.max(40, base - 10);
+  const high = Math.min(180, base + 10);
+  const candidate = current + direction * step;
+  return Math.max(low, Math.min(high, candidate < low || candidate > high ? current - direction * step : candidate));
 }
 
 export class TapTempo {

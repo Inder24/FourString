@@ -328,6 +328,7 @@ const lessonTempo = byId<HTMLElement>("lesson-tempo");
 const lessonPattern = byId<HTMLElement>("lesson-pattern");
 const lessonProgress = byId<HTMLElement>("lesson-progress");
 const lessonStatus = byId<HTMLElement>("lesson-status");
+const lessonArrangementSummary = byId<HTMLElement>("lesson-arrangement-summary");
 const lessonLines = byId<HTMLOListElement>("lesson-lines");
 const lessonDemo = byId<HTMLButtonElement>("lesson-demo");
 const lessonPractice = byId<HTMLButtonElement>("lesson-practice");
@@ -2993,6 +2994,9 @@ function renderLesson(): void {
   lessonTitle.textContent = chapter.title;
   lessonCopy.textContent = chapter.description;
   lessonTempo.textContent = `${chapter.bpm} BPM · ${song.meter}`;
+  lessonArrangementSummary.textContent = melodyChapter
+    ? `${song.lines.reduce((count, line) => count + (line.notes?.length ?? 0), 0)} notes · ${song.lines.length} phrases${lines.length < song.lines.length ? ` · this chapter: first ${totalNotes}` : ""}`
+    : `${song.lines.length} parts · ${chordNames.length} chords`;
   lessonPattern.textContent = phaseForPattern === "full" ? chapter.fullPattern : chapter.guidedPattern;
   lessonPattern.dataset.step = String(lessonGestureIndex);
   lessonProgress.textContent = hedwig
@@ -3030,17 +3034,20 @@ function renderLesson(): void {
   renderLessonGuidance();
 
   lessonLines.replaceChildren(
-    ...lines.map((line, lineIndex) => {
+    ...song.lines.map((line, lineIndex) => {
       const item = document.createElement("li");
-      const isCurrent = !lessonDemoPlaying && ((lessonPhase === "preview" && lineIndex === 0) ||
+      const inChapter = lineIndex < lines.length;
+      const isCurrent = inChapter && !lessonDemoPlaying && ((lessonPhase === "preview" && lineIndex === 0) ||
         (lessonPhase !== "preview" && lessonPhase !== "complete" && lineIndex === lessonLineIndex));
-      const isDemo = lessonDemoPlaying && lineIndex === lessonDemoLineIndex;
-      const isComplete = lessonPhase === "complete" ||
+      const isDemo = inChapter && lessonDemoPlaying && lineIndex === lessonDemoLineIndex;
+      const isComplete = (inChapter && lessonPhase === "complete") ||
         ((lessonPhase === "lines" || lessonPhase === "full") && lineIndex < lessonLineIndex);
       item.className = "lesson-line";
+      item.classList.toggle("is-later", !inChapter);
       item.classList.toggle("is-current", isCurrent);
       item.classList.toggle("is-demo", isDemo);
       item.classList.toggle("is-complete", isComplete);
+      if (isCurrent || isDemo) item.setAttribute("aria-current", "step");
       const steps = melodyChapter
         ? (line.notes ?? []).map((note, noteIndex) => {
           const position = getFretPosition(note.stringIndex, note.fret);
