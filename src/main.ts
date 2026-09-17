@@ -14,6 +14,7 @@ import {
   LESSON_CHORDS,
   LESSON_SONGS,
   lessonBackingChordEvents,
+  lessonChapterLines,
   lessonLineBeats,
   lessonLineEvents,
   lessonPlaybackEvents,
@@ -21,6 +22,7 @@ import {
   type ChordName,
   type LessonGesture,
   type LessonPhase,
+  type SongLine,
 } from "./lesson";
 import { RealMelodyConfirmation, RealStrumCounter } from "./song-input";
 import { filterLessonLibrary, lessonTrust, safeLessonSourceUrl, type LessonLibraryFilters } from "./lesson-trust";
@@ -626,7 +628,7 @@ function bindControls(): void {
     selectedSongIndex = nextIndex;
     selectedChapterIndex = 0;
     songSearch.value = "";
-    resetLesson(`${currentSong().title} selected. Choose a chapter or hear the four-part demo.`);
+    resetLesson(`${currentSong().title} selected. Choose a chapter or hear its demo.`);
     if (window.matchMedia("(max-width: 700px)").matches && canPracticeLessonSong(currentSong())) {
       lessonCue.scrollIntoView({ block: "center" });
     }
@@ -807,12 +809,13 @@ function currentPracticeChord(): ChordName | null {
 function currentLessonGuidance() {
   const song = currentSong();
   const chapter = song.chapters[selectedChapterIndex];
+  const lines = currentLessonLines();
   const lineIndex = lessonDemoPlaying
     ? Math.max(0, lessonDemoLineIndex)
     : lessonPhase === "complete"
-      ? song.lines.length - 1
+      ? lines.length - 1
       : lessonLineIndex;
-  const line = song.lines[lineIndex];
+  const line = lines[lineIndex];
   const events = lessonPlaybackEvents(line, chapter, lessonPhase, lessonDemoPlaying);
   const chordIndex = lessonDemoPlaying ? Math.max(0, lessonDemoChordIndex) : lessonChordIndex;
   const chord = isMelodyChapter(chapter)
@@ -2886,6 +2889,15 @@ function currentSong() {
   return LESSON_SONGS[selectedSongIndex];
 }
 
+function currentLessonLines() {
+  const song = currentSong();
+  return lessonChapterLines(song, song.chapters[selectedChapterIndex]);
+}
+
+function melodyNoteNumber(lines: readonly SongLine[], lineIndex: number, gestureIndex: number): number {
+  return lines.slice(0, lineIndex).reduce((count, line) => count + (line.notes?.length ?? 0), 0) + gestureIndex + 1;
+}
+
 function renderSongResults(): void {
   const filters: LessonLibraryFilters = {
     status: lessonStatusFilter.value as LessonLibraryFilters["status"],
@@ -2927,7 +2939,10 @@ async function startLessonPractice(): Promise<void> {
   stopReferenceAudio();
   stopLessonDemo();
   stopLessonTakePlayback();
-  lessonPhase = "lines";
+  const song = currentSong();
+  const chapter = song.chapters[selectedChapterIndex];
+  const lines = currentLessonLines();
+  lessonPhase = chapter.melodyFlow === "continuous" ? "full" : "lines";
   lessonLineIndex = 0;
   lessonChordIndex = 0;
   lessonGestureIndex = 0;
@@ -2935,14 +2950,12 @@ async function startLessonPractice(): Promise<void> {
   lessonPitchConfirmation.reset();
   lessonStrumCounter.reset();
   state.clearAll();
-  const song = currentSong();
-  const chapter = song.chapters[selectedChapterIndex];
   if (isMelodyChapter(chapter)) {
-    const first = song.lines[0].notes![0];
+    const first = lines[0].notes![0];
     const position = getFretPosition(first.stringIndex, first.fret);
     lessonStatus.textContent = `Part 1 begins with ${first.solfege ? `${first.solfege} · ` : ""}${position.noteName}. Pick string ${physicalStringNumber(first.stringIndex)}, fret ${first.fret}.`;
   } else {
-    const firstChord = song.lines[0].chords[0];
+    const firstChord = lines[0].chords[0];
     lessonStatus.textContent = `Part 1 begins on ${firstChord}. Form ${LESSON_CHORDS[firstChord].frets.join("–")}, then play the shown pattern.`;
   }
   renderInstrumentState();
@@ -2953,7 +2966,13 @@ async function startLessonPractice(): Promise<void> {
 function renderLesson(): void {
   const song = currentSong();
   const chapter = song.chapters[selectedChapterIndex];
+  const lines = currentLessonLines();
   const melodyChapter = isMelodyChapter(chapter);
+  const hedwig = song.id === "hedwigs-theme";
+  const totalNotes = lines.reduce((count, line) => count + (line.notes?.length ?? 0), 0);
+  const shownLineIndex = lessonDemoPlaying ? Math.max(0, lessonDemoLineIndex) : lessonPhase === "complete" ? lines.length - 1 : lessonLineIndex;
+  const shownGestureIndex = lessonDemoPlaying ? Math.max(0, lessonDemoGestureIndex) : lessonPhase === "complete" ? (lines[shownLineIndex].notes?.length ?? 1) - 1 : lessonGestureIndex;
+  const noteNumber = melodyNoteNumber(lines, shownLineIndex, shownGestureIndex);
   lessonWorkbench.dataset.phase = lessonPhase;
   lessonWorkbench.dataset.demo = String(lessonDemoPlaying);
   lessonWorkbench.dataset.feedback = lessonFeedback;
@@ -2976,14 +2995,23 @@ function renderLesson(): void {
   lessonTempo.textContent = `${chapter.bpm} BPM · ${song.meter}`;
   lessonPattern.textContent = phaseForPattern === "full" ? chapter.fullPattern : chapter.guidedPattern;
   lessonPattern.dataset.step = String(lessonGestureIndex);
-  lessonProgress.textContent =
-    lessonPhase === "preview"
-      ? `Preview · hear the ${song.lines.length}-part example`
-      : lessonPhase === "full"
-        ? `Full run · part ${lessonLineIndex + 1} of ${song.lines.length}`
+  lessonProgress.textContent = hedwig
+    ? lessonDemoPlaying
+      ? `Demo · note ${noteNumber} of ${totalNotes}`
+      : lessonPhase === "preview"
+        ? `Preview · hear the ${totalNotes}-note example`
         : lessonPhase === "complete"
-          ? `Chapter complete · ${song.lines.length} of ${song.lines.length} parts`
-          : `Guided part ${lessonLineIndex + 1} of ${song.lines.length}`;
+          ? `Chapter complete · ${totalNotes} notes`
+          : lessonPhase === "lines"
+            ? `Guided phrase ${lessonLineIndex + 1} of ${lines.length}`
+            : `Continuous run · note ${noteNumber} of ${totalNotes}`
+    : lessonPhase === "preview"
+      ? `Preview · hear the ${lines.length}-part example`
+      : lessonPhase === "full"
+        ? `Full run · part ${lessonLineIndex + 1} of ${lines.length}`
+        : lessonPhase === "complete"
+          ? `Chapter complete · ${lines.length} of ${lines.length} parts`
+          : `Guided part ${lessonLineIndex + 1} of ${lines.length}`;
   lessonPractice.textContent = lessonPhase === "preview"
     ? "Start practice"
     : lessonPhase === "complete"
@@ -2996,13 +3024,13 @@ function renderLesson(): void {
   lessonDemo.title = practiceAllowed
     ? audio.isReady ? "" : "Sound will load when the demo starts"
     : "This arrangement is unverified; demo and guided practice are unavailable.";
-  lessonDemo.querySelector("span")!.textContent = lessonDemoPlaying ? "Stop demo" : `Hear ${song.lines.length}-line demo`;
+  lessonDemo.querySelector("span")!.textContent = lessonDemoPlaying ? "Stop demo" : hedwig ? `Hear ${totalNotes}-note demo` : `Hear ${lines.length}-line demo`;
   lessonDemo.classList.toggle("is-playing", lessonDemoPlaying);
   renderLessonCue();
   renderLessonGuidance();
 
   lessonLines.replaceChildren(
-    ...song.lines.map((line, lineIndex) => {
+    ...lines.map((line, lineIndex) => {
       const item = document.createElement("li");
       const isCurrent = !lessonDemoPlaying && ((lessonPhase === "preview" && lineIndex === 0) ||
         (lessonPhase !== "preview" && lessonPhase !== "complete" && lineIndex === lessonLineIndex));
@@ -3085,10 +3113,14 @@ function renderLessonProvenance(song: (typeof LESSON_SONGS)[number]): void {
 
 function renderLessonCue(): void {
   const { song, chapter, line, chord, gesture, events } = currentLessonGuidance();
+  const lines = currentLessonLines();
   const melody = isMelodyChapter(chapter);
-  const lineIndex = lessonDemoPlaying ? Math.max(0, lessonDemoLineIndex) : lessonPhase === "complete" ? song.lines.length - 1 : lessonLineIndex;
+  const lineIndex = lessonDemoPlaying ? Math.max(0, lessonDemoLineIndex) : lessonPhase === "complete" ? lines.length - 1 : lessonLineIndex;
   const chordIndex = lessonDemoPlaying ? Math.max(0, lessonDemoChordIndex) : lessonChordIndex;
   const gestureIndex = lessonDemoPlaying ? Math.max(0, lessonDemoGestureIndex) : lessonPhase === "complete" ? events.length - 1 : Math.min(lessonGestureIndex, events.length - 1);
+  const globalMelody = song.id === "hedwigs-theme" && (lessonDemoPlaying || lessonPhase === "full" || chapter.melodyFlow === "continuous");
+  const railEvents: readonly LessonGesture[] = globalMelody ? lines.flatMap((item) => item.notes ?? []) : events;
+  const railIndex = globalMelody ? melodyNoteNumber(lines, lineIndex, gestureIndex) - 1 : gestureIndex;
 
   lessonCue.dataset.state = lessonDemoPlaying
     ? "demo"
@@ -3105,7 +3137,7 @@ function renderLessonCue(): void {
       : lessonPhase === "preview"
         ? "First move"
         : "Your turn · play this";
-  lessonCueLine.textContent = `Part ${lineIndex + 1} · ${line.label}`;
+  lessonCueLine.textContent = `${song.id === "hedwigs-theme" ? "Phrase" : "Part"} ${lineIndex + 1} · ${line.label}`;
   lessonCueNative.textContent = line.native ?? (melody ? "Beginner fingerpicking melody" : "Instrumental chord study");
   if (melody && gesture.kind === "pluck") {
     const fret = gesture.fret ?? 0;
@@ -3136,17 +3168,17 @@ function renderLessonCue(): void {
     }));
   }
 
-  lessonCueBeat.textContent = `Move ${gestureIndex + 1} of ${events.length}`;
+  lessonCueBeat.textContent = globalMelody ? `Note ${railIndex + 1} of ${railEvents.length}` : `Move ${gestureIndex + 1} of ${events.length}`;
   lessonCueGesture.textContent = lessonGestureVisual(gesture);
-  lessonGestureRail.style.setProperty("--lesson-steps", String(Math.min(8, Math.max(1, events.length))));
+  lessonGestureRail.style.setProperty("--lesson-steps", String(Math.min(globalMelody ? 7 : 8, Math.max(1, railEvents.length))));
   lessonGestureRail.replaceChildren(
-    ...events.map((event, index) => {
+    ...railEvents.map((event, index) => {
       const step = document.createElement("span");
       step.className = "lesson-gesture-step";
-      step.classList.toggle("is-current", index === gestureIndex && lessonPhase !== "complete");
+      step.classList.toggle("is-current", index === railIndex && lessonPhase !== "complete");
       step.classList.toggle(
         "is-complete",
-        lessonPhase === "complete" || (lessonDemoPlaying ? index < gestureIndex : index < lessonGestureIndex),
+        lessonPhase === "complete" || index < railIndex,
       );
       step.textContent = lessonGestureMark(event);
       step.setAttribute("aria-label", `Move ${index + 1}: ${gestureInstruction(event)}`);
@@ -3157,21 +3189,23 @@ function renderLessonCue(): void {
   if (gestureIndex + 1 < events.length) {
     lessonCueNext.textContent = lessonGestureVisual(events[gestureIndex + 1]);
     lessonCueNextDetail.textContent = melody ? lessonGestureDetail(events[gestureIndex + 1]) : `Stay on ${chord}`;
-  } else if (melody && lineIndex + 1 < song.lines.length) {
-    const nextNote = song.lines[lineIndex + 1].notes![0];
-    lessonCueNext.textContent = `Part ${lineIndex + 2} · ${lessonGestureVisual(nextNote)}`;
-    lessonCueNextDetail.textContent = song.lines[lineIndex + 1].label;
+  } else if (melody && lineIndex + 1 < lines.length) {
+    const nextNote = lines[lineIndex + 1].notes![0];
+    lessonCueNext.textContent = globalMelody
+      ? `Note ${melodyNoteNumber(lines, lineIndex + 1, 0)} · ${lessonGestureVisual(nextNote)}`
+      : `Phrase ${lineIndex + 2} · ${lessonGestureVisual(nextNote)}`;
+    lessonCueNextDetail.textContent = lines[lineIndex + 1].label;
   } else if (!melody && chordIndex + 1 < line.chords.length) {
     const nextChord = line.chords[chordIndex + 1];
     lessonCueNext.textContent = `Change to ${nextChord}`;
     lessonCueNextDetail.textContent = LESSON_CHORDS[nextChord].frets.join("–");
-  } else if (lineIndex + 1 < song.lines.length) {
-    const nextChord = song.lines[lineIndex + 1].chords[0];
+  } else if (lineIndex + 1 < lines.length) {
+    const nextChord = lines[lineIndex + 1].chords[0];
     lessonCueNext.textContent = `Part ${lineIndex + 2} · ${nextChord}`;
-    lessonCueNextDetail.textContent = song.lines[lineIndex + 1].label;
+    lessonCueNextDetail.textContent = lines[lineIndex + 1].label;
   } else {
     lessonCueNext.textContent = lessonPhase === "lines" ? "Full run" : "Finish";
-    lessonCueNextDetail.textContent = lessonPhase === "lines" ? chapter.fullPattern : "Let the last chord ring";
+    lessonCueNextDetail.textContent = lessonPhase === "lines" ? chapter.fullPattern : melody ? "Let the last note ring" : "Let the last chord ring";
   }
 }
 
@@ -3211,13 +3245,16 @@ function startLessonDemo(): void {
   lessonFeedback = "neutral";
   const song = currentSong();
   const chapter = song.chapters[selectedChapterIndex];
+  const lines = currentLessonLines();
   const beatMs = 60_000 / chapter.bpm;
   let chordOffset = 0;
-  lessonStatus.textContent = `Playing the ${song.lines.length}-part ${chapter.shortTitle.toLowerCase()} example at ${chapter.bpm} BPM.`;
+  lessonStatus.textContent = song.id === "hedwigs-theme"
+    ? `Playing ${lines.reduce((count, line) => count + (line.notes?.length ?? 0), 0)} notes continuously at ${chapter.bpm} BPM.`
+    : `Playing the ${lines.length}-part ${chapter.shortTitle.toLowerCase()} example at ${chapter.bpm} BPM.`;
   renderLesson();
 
   if (isMelodyChapter(chapter)) {
-    song.lines.forEach((line, lineIndex) => {
+    lines.forEach((line, lineIndex) => {
       const events = lessonLineEvents(line, chapter, "full");
       if (chapter.backing && line.chords.length > 0) {
         const chordSpacing = lessonLineBeats(line, chapter) / line.chords.length;
@@ -3243,7 +3280,7 @@ function startLessonDemo(): void {
     });
   } else {
     const events = chapter.fullEvents;
-    song.lines.forEach((line, lineIndex) => {
+    lines.forEach((line, lineIndex) => {
       line.chords.forEach((chord, chordIndex) => {
         events.forEach((gesture, gestureIndex) => {
           lessonTimers.push(
@@ -3262,7 +3299,9 @@ function startLessonDemo(): void {
   }
 
   lessonTimers.push(
-    window.setTimeout(() => stopLessonDemo("Demo finished. Start practice and take it one line at a time."), chordOffset + 180),
+    window.setTimeout(() => stopLessonDemo(chapter.melodyFlow === "continuous"
+      ? "Demo finished. Play the highlighted notes in one flow when you are ready."
+      : "Demo finished. Start practice and take it one phrase at a time."), chordOffset + 180),
   );
 }
 
@@ -3495,7 +3534,7 @@ function handleLessonMicReading(reading: PitchReading | null, signal: SignalFram
     if (result.accepted) {
       lessonGestureIndex += 1;
       lessonFeedback = "success";
-      const events = lessonLineEvents(currentSong().lines[lessonLineIndex], chapter, lessonPhase);
+      const events = lessonLineEvents(currentLessonLines()[lessonLineIndex], chapter, lessonPhase);
       if (lessonGestureIndex >= events.length) advanceLessonLine();
       else {
         const next = events[lessonGestureIndex];
@@ -3516,7 +3555,7 @@ function handleLessonMicReading(reading: PitchReading | null, signal: SignalFram
   lessonShapeCheck.checked = false;
   lessonDirectionCheck.checked = false;
   lessonGestureIndex += 1;
-  const events = lessonLineEvents(currentSong().lines[lessonLineIndex], chapter, lessonPhase);
+  const events = lessonLineEvents(currentLessonLines()[lessonLineIndex], chapter, lessonPhase);
   if (lessonGestureIndex >= events.length) advanceLessonChord();
   else renderLesson();
 }
@@ -3524,7 +3563,7 @@ function handleLessonMicReading(reading: PitchReading | null, signal: SignalFram
 function handleLessonGesture(gesture: LessonGesture): void {
   if (currentView !== "chapters" || lessonInput !== "screen" || lessonDemoPlaying || (lessonPhase !== "lines" && lessonPhase !== "full")) return;
   const song = currentSong();
-  const line = song.lines[lessonLineIndex];
+  const line = currentLessonLines()[lessonLineIndex];
   const chapter = song.chapters[selectedChapterIndex];
   const expectedEvents = lessonLineEvents(line, chapter, lessonPhase);
   const expected = expectedEvents[lessonGestureIndex];
@@ -3588,24 +3627,30 @@ function advanceLessonLine(): void {
   lessonChordIndex = 0;
   lessonFeedback = "neutral";
   const song = currentSong();
+  const lines = currentLessonLines();
+  const chapter = song.chapters[selectedChapterIndex];
   lessonLineIndex += 1;
-  if (lessonLineIndex < song.lines.length) {
-    const next = song.lines[lessonLineIndex].notes![0];
+  if (lessonLineIndex < lines.length) {
+    const next = lines[lessonLineIndex].notes![0];
     lessonPitchConfirmation.nextExpected(midiFrequency(getFretPosition(next.stringIndex, next.fret ?? 0).midi));
-    lessonStatus.textContent = `Part ${lessonLineIndex} complete. Next: ${gestureInstruction(next)} for “${song.lines[lessonLineIndex].label}”.`;
+    lessonStatus.textContent = chapter.melodyFlow === "continuous"
+      ? `Keep the melody moving. Next: ${gestureInstruction(next)}.`
+      : `Phrase ${lessonLineIndex} complete. Next: ${gestureInstruction(next)} for “${lines[lessonLineIndex].label}”.`;
     renderLesson();
     return;
   }
   if (lessonPhase === "lines") {
     lessonPhase = "full";
     lessonLineIndex = 0;
-    const next = song.lines[0].notes![0];
+    const next = lines[0].notes![0];
     lessonPitchConfirmation.nextExpected(midiFrequency(getFretPosition(next.stringIndex, next.fret ?? 0).midi));
-    lessonStatus.textContent = `All ${song.lines.length} parts learned. Now connect the full melody without stopping.`;
+    lessonStatus.textContent = `All ${lines.length} phrases learned. Now connect the full melody without stopping.`;
   } else {
     lessonPhase = "complete";
-    lessonLineIndex = song.lines.length - 1;
-    lessonStatus.textContent = "Chapter complete. Your notes stayed connected from the first phrase to the last.";
+    lessonLineIndex = lines.length - 1;
+    lessonStatus.textContent = lines.length === 1
+      ? "Chapter complete. You played the four-note opening motif."
+      : "Chapter complete. Your notes stayed connected from the first phrase to the last.";
   }
   renderLesson();
 }

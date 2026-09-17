@@ -374,7 +374,7 @@ test("plays the short Hedwig fingerpicking study and advances its note cue", asy
   await expect(page.locator(".lesson-line").first().locator(".lesson-note strong")).toHaveText(["3,2", "2,3", "1,1", "1,0"]);
   await expect(page.locator("#lesson-cue-frets")).toContainText("3,2 · D4");
 
-  await page.getByRole("button", { name: "Hear 4-line demo", exact: true }).click();
+  await page.getByRole("button", { name: "Hear 4-note demo", exact: true }).click();
   await expect(page.locator("#lesson-cue")).toHaveAttribute("data-state", "demo");
   await page.getByRole("button", { name: "Stop demo", exact: true }).click();
   await page.getByRole("button", { name: "Start practice", exact: true }).click();

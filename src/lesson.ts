@@ -52,6 +52,8 @@ export interface LessonChapter {
   fullEvents: readonly LessonGesture[];
   technique?: "chords" | "melody";
   backing?: boolean;
+  practiceLineCount?: number;
+  melodyFlow?: "phrases" | "continuous";
 }
 
 export interface LessonBackingChordEvent {
@@ -313,19 +315,21 @@ const HEDWIG_CHAPTERS: readonly LessonChapter[] = [
     id: 1,
     shortTitle: "Find the motif",
     title: "Find the first four notes",
-    description: "Start on string 3, fret 2. Pick the highlighted notes gently, one at a time; the long note gets room to ring.",
+    description: "Just the opening four notes. Start on string 3, fret 2, and let the long note ring. This chapter finishes after the motif.",
     bpm: 54,
     guidedPattern: "D · G · B♭ · A",
     fullPattern: "Listen · pick · let it ring",
     guidedEvents: [],
     fullEvents: [],
     technique: "melody",
+    practiceLineCount: 1,
+    melodyFlow: "continuous",
   },
   {
     id: 2,
     shortTitle: "Connect phrases",
     title: "Carry the melody across the strings",
-    description: "Join the four short phrases in a gentle three-beat pulse. Watch the shift between strings 2 and 1.",
+    description: "Learn three four-note phrases and a two-note ending, then join them in a gentle three-beat pulse.",
     bpm: 64,
     guidedPattern: "1 · 2 · 3 / 1 · 2 · 3",
     fullPattern: "Four phrases · one flowing pulse",
@@ -337,13 +341,14 @@ const HEDWIG_CHAPTERS: readonly LessonChapter[] = [
     id: 3,
     shortTitle: "Full opening",
     title: "Play the short opening in one take",
-    description: "Keep the pickup light and give the final note time to fade. This is a simplified, melody-only ukulele study.",
+    description: "Play all 14 notes without stopping at phrase boundaries. Keep the pickup light and let the ending fade.",
     bpm: 76,
     guidedPattern: "Soft pickup · steady waltz",
     fullPattern: "The short G-minor opening",
     guidedEvents: [],
     fullEvents: [],
     technique: "melody",
+    melodyFlow: "continuous",
   },
 ] as const;
 
@@ -633,6 +638,10 @@ export function lessonEvents(chapter: LessonChapter, phase: LessonPhase): readon
 
 export function isMelodyChapter(chapter: LessonChapter): boolean {
   return chapter.technique === "melody";
+}
+
+export function lessonChapterLines(song: LessonSong, chapter: LessonChapter): readonly SongLine[] {
+  return chapter.practiceLineCount === undefined ? song.lines : song.lines.slice(0, chapter.practiceLineCount);
 }
 
 export function lessonLineEvents(
