@@ -78,9 +78,9 @@ test("labels all four strings on the neck and body", async ({ page }) => {
   await expect(page.locator(".string-identity small")).toHaveText(["4", "3", "2", "1"]);
 });
 
-test("groups the product into five primary destinations with drills under Practice", async ({ page }) => {
+test("groups the product into six primary destinations with drills under Practice", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator(".mode-switch .mode-button")).toHaveText(["Play", "Practice", "AI Coach", "Tune", "Tempo"]);
+  await expect(page.locator(".mode-switch .mode-button")).toHaveText(["Play", "Practice", "AI Coach", "Tune", "Tempo", "Check chord"]);
   await expect(page.locator("#play-subnav")).toBeVisible();
   await expect(page.locator("#practice-subnav")).toBeHidden();
 

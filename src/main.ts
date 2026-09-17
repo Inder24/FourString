@@ -42,6 +42,7 @@ import {
 import { InstrumentState } from "./state";
 import { BeatSchedule } from './tempo';
 import { TempoPanel } from './tempo-ui';
+import { ChordCheckPanel } from './chord-check-ui';
 import {
   adaptPracticeTempo,
   formatPracticeTime,
@@ -55,7 +56,7 @@ import {
 import { createSavedTake, MAX_TAKE_DURATION_MS, MAX_TAKE_EVENTS, parseSavedTake, type SavedTake, type TakeNoteEvent } from "./take";
 import { targetPitch, TUNING_TARGETS, TunerEngine, type PitchReading, type SignalFrame, type TunerStatus } from "./tuner";
 
-type AppView = PlayMode | "tuner" | "tempo" | "coach" | "ai-coach" | "practice" | "chapters";
+type AppView = PlayMode | "tuner" | "tempo" | "chord-check" | "coach" | "ai-coach" | "practice" | "chapters";
 type CoachDrill = "strings" | "pulse";
 type HandLayout = "one" | "two";
 type PracticeInput = "screen" | "real";
@@ -200,6 +201,7 @@ const modeStrum = byId<HTMLButtonElement>("mode-strum");
 const modeExplore = byId<HTMLButtonElement>("mode-explore");
 const modeTuner = byId<HTMLButtonElement>("mode-tuner");
 const modeTempo = byId<HTMLButtonElement>('mode-tempo');
+const modeChordCheck = byId<HTMLButtonElement>('mode-chord-check');
 const modeCoach = byId<HTMLButtonElement>("mode-coach");
 const modeAiCoach = byId<HTMLButtonElement>("mode-ai-coach");
 const modePractice = byId<HTMLButtonElement>("mode-practice");
@@ -228,6 +230,7 @@ const patternTempoRange = byId<HTMLInputElement>("pattern-tempo");
 const patternTempoValue = byId<HTMLOutputElement>("pattern-tempo-value");
 const tunerWorkbench = byId<HTMLElement>("tuner-workbench");
 const tempoWorkbench = byId<HTMLElement>('tempo-workbench');
+const chordCheckWorkbench = byId<HTMLElement>('chord-check-workbench');
 const tunerToggle = byId<HTMLButtonElement>("tuner-toggle");
 const tunerMeter = byId<HTMLElement>("tuner-meter");
 const tunerNote = byId<HTMLElement>("tuner-note");
@@ -368,6 +371,7 @@ const adaptiveCoach = new AdaptiveCoachController({
   ensureAudio: () => initializeAudio({ focusInstrument: false }),
 });
 const tempoPanel = new TempoPanel(tempoWorkbench, audio, () => initializeAudio({ focusInstrument: false }));
+const chordCheckPanel = new ChordCheckPanel(chordCheckWorkbench, tuner);
 
 const fretGridTemplate = getFretGridTemplate();
 fretLabels.style.gridTemplateColumns = fretGridTemplate;
@@ -485,6 +489,7 @@ function bindControls(): void {
   modeExplore.addEventListener("click", () => setView("explore"));
   modeTuner.addEventListener("click", () => setView("tuner"));
   modeTempo.addEventListener('click', () => setView('tempo'));
+  modeChordCheck.addEventListener('click', () => setView('chord-check'));
   modeCoach.addEventListener("click", () => setView("coach"));
   modeAiCoach.addEventListener("click", () => setView("ai-coach"));
   modePractice.addEventListener("click", () => setView("practice"));
@@ -1243,6 +1248,7 @@ function setView(view: AppView): void {
   if (currentView === "ai-coach" && view !== "ai-coach") adaptiveCoach.leave();
   if (currentView === "tuner" && view !== "tuner") stopTuner();
   if (currentView === 'tempo' && view !== 'tempo') tempoPanel.leave();
+  if (currentView === 'chord-check' && view !== 'chord-check') chordCheckPanel.leave();
   if (currentView === "chapters" && view !== "chapters" && lessonInput === "real") stopLessonMicrophone();
   if (currentView === "practice" && view !== "practice" && practiceActive && !practicePaused) pausePracticeSession();
   if (currentView === 'practice' && view !== 'practice') {
@@ -1265,6 +1271,7 @@ function setView(view: AppView): void {
     [modeAiCoach, view === "ai-coach"],
     [modeTuner, view === "tuner"],
     [modeTempo, view === 'tempo'],
+    [modeChordCheck, view === 'chord-check'],
   ];
   primaryButtons.forEach(([button, selected]) => {
     button.classList.toggle("is-selected", selected);
@@ -1302,6 +1309,11 @@ function setView(view: AppView): void {
       title: 'Find your tempo.',
       guidance: 'Set a beat for any song or lesson, then play alongside it.',
     },
+    'chord-check': {
+      eyebrow: 'Check my chord · Real ukulele',
+      title: 'Hear what your chord is saying.',
+      guidance: 'Strum once and compare the notes that ring with the shape you chose.',
+    },
     coach: {
       eyebrow: "Practice · Quick drills",
       title: "Play it. See what landed.",
@@ -1338,14 +1350,15 @@ function setView(view: AppView): void {
   patternBuilder.hidden = view !== "explore";
   tunerWorkbench.hidden = view !== "tuner";
   tempoWorkbench.hidden = view !== 'tempo';
+  chordCheckWorkbench.hidden = view !== 'chord-check';
   coachWorkbench.hidden = view !== "coach";
   aiCoachWorkbench.hidden = view !== "ai-coach";
   practiceWorkbench.hidden = view !== "practice";
   lessonWorkbench.hidden = view !== "chapters";
   instrumentSourceChoice.hidden = view !== "practice" && view !== "coach";
-  instrumentFrame.hidden = view === "tuner" || view === 'tempo' || view === "ai-coach" || (view === "coach" && practiceInput === "real");
-  performanceReadout.hidden = view === "tuner" || view === 'tempo' || view === "ai-coach" || (view === "coach" && practiceInput === "real");
-  clearButton.hidden = view === "tuner" || view === 'tempo' || view === "ai-coach" || (view === "coach" && practiceInput === "real");
+  instrumentFrame.hidden = view === "tuner" || view === 'tempo' || view === 'chord-check' || view === "ai-coach" || (view === "coach" && practiceInput === "real");
+  performanceReadout.hidden = view === "tuner" || view === 'tempo' || view === 'chord-check' || view === "ai-coach" || (view === "coach" && practiceInput === "real");
+  clearButton.hidden = view === "tuner" || view === 'tempo' || view === 'chord-check' || view === "ai-coach" || (view === "coach" && practiceInput === "real");
   if (view !== "explore") patternArmed = false;
   if (view === "chapters") renderLesson();
   if (view === "coach") renderCoach();
@@ -3724,7 +3737,7 @@ function physicalStringNumber(stringIndex: number): number {
 }
 
 function isFormControl(target: EventTarget | null): boolean {
-  return target instanceof Element && Boolean(target.closest("input, select, summary, .control-ribbon button, .view-subnav button, .instrument-source-choice button, .pattern-builder button, .audio-gate, .lesson-workbench button, .tuner-workbench button, .tempo-workbench button, .coach-workbench button, .ai-coach-workbench button, .practice-workbench button"));
+  return target instanceof Element && Boolean(target.closest("input, select, summary, .control-ribbon button, .view-subnav button, .instrument-source-choice button, .pattern-builder button, .audio-gate, .lesson-workbench button, .tuner-workbench button, .tempo-workbench button, .chord-check-workbench button, .coach-workbench button, .ai-coach-workbench button, .practice-workbench button"));
 }
 
 function tryCapturePointer(element: Element, pointerId: number): void {

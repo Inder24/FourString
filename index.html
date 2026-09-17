@@ -68,6 +68,10 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 15h2v4H5zM11 9h2v10h-2zM17 5h2v14h-2zM3 19h18"/></svg>
               Tempo
             </button>
+            <button class="mode-button" id="mode-chord-check" type="button" aria-label="Check my chord" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 15V5m4 12V7m4 12V9m4 8V7m3 8V5M3 20h18"/></svg>
+              Check chord
+            </button>
           </nav>
 
           <span class="control-separator" aria-hidden="true"></span>
@@ -254,6 +258,40 @@
             </div>
             <p id="tempo-status" role="status">Set a tempo, then press Start beat.</p>
             <small>Use headphones when practising with microphone feedback so the beat is not mistaken for a strum.</small>
+          </div>
+        </section>
+
+        <section class="chord-check-workbench" id="chord-check-workbench" aria-labelledby="chord-check-title" hidden>
+          <div class="chord-check-main">
+            <span class="section-kicker">Real ukulele · private, on-device analysis</span>
+            <h2 id="chord-check-title">Does my chord sound right?</h2>
+            <p>Choose a shape, then strum all four strings once after the countdown. We’ll compare the notes that ring with the chord you chose.</p>
+            <div class="chord-check-choices" role="group" aria-label="Choose a chord to check">
+              <button data-check-chord="C" type="button" aria-label="C major" aria-pressed="true">C <small>major</small></button>
+              <button data-check-chord="Am" type="button" aria-label="A minor" aria-pressed="false">Am <small>minor</small></button>
+              <button data-check-chord="F" type="button" aria-label="F major" aria-pressed="false">F <small>major</small></button>
+              <button data-check-chord="G" type="button" aria-label="G major" aria-pressed="false">G <small>major</small></button>
+            </div>
+            <div class="chord-check-action-row">
+              <button id="chord-check-start" class="chord-check-start" type="button">Listen to my chord</button>
+              <button id="chord-check-single" class="chord-check-secondary" type="button" hidden>Check strings one by one</button>
+              <button id="chord-check-cancel" class="chord-check-secondary" type="button" hidden>Cancel chord check</button>
+            </div>
+            <p class="chord-check-status" id="chord-check-status" role="status">Ready when you are. Choose a chord and strum once.</p>
+            <p class="chord-check-privacy">The recording and model stay in this browser. No chord audio goes to Astra or a server. Use a quiet room and place your phone about 20–40 cm away. Note estimation uses <a href="https://github.com/spotify/basic-pitch-ts" target="_blank" rel="noopener noreferrer">Spotify Basic Pitch</a>.</p>
+          </div>
+          <div class="chord-check-stage">
+            <span class="section-kicker">Shape to try</span>
+            <div class="chord-check-heading"><strong id="chord-check-target">C major</strong><span id="chord-check-countdown" aria-live="polite"></span></div>
+            <p id="chord-check-frets">G C E A · 0 · 0 · 0 · 3</p>
+            <div id="chord-check-diagram" class="chord-check-diagram" aria-label="Target string pitches and frets"></div>
+            <div id="chord-check-result" class="chord-check-result" aria-live="polite" hidden>
+              <span class="section-kicker">What the browser heard</span>
+              <h3 id="chord-check-result-title"></h3>
+              <dl><div><dt>Heard</dt><dd id="chord-check-heard"></dd></div><div><dt>Expected</dt><dd id="chord-check-expected"></dd></div></dl>
+              <p id="chord-check-result-hint"></p>
+            </div>
+            <p class="chord-check-limit">This checks sounding notes, not which fingers you used. If the sound is unclear, pick the strings individually.</p>
           </div>
         </section>
 

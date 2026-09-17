@@ -42,6 +42,72 @@
     0 30px 55px -38px rgba(50, 29, 22, 0.5);
 }
 
+/* Check my chord: a focused listening bench with an always-visible target shape. */
+.chord-check-workbench[hidden], .chord-check-result[hidden], #chord-check-single[hidden], #chord-check-cancel[hidden] { display: none; }
+.chord-check-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, .9fr);
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto 36px;
+  padding: 16px;
+  border-radius: 24px;
+  background: var(--parchment-raised);
+  box-shadow: 0 14px 36px -25px rgba(48, 29, 22, .4);
+}
+.chord-check-main, .chord-check-stage { min-width: 0; border-radius: 18px; padding: clamp(22px, 3vw, 42px); }
+.chord-check-main { background: var(--rosewood); color: var(--binding); }
+.chord-check-main .section-kicker { color: #efb0a2; }
+.chord-check-main h2 { max-width: 9ch; margin: 16px 0; font-family: 'Fraunces Variable', Georgia, serif; font-size: clamp(38px, 4.6vw, 68px); line-height: 1.04; }
+.chord-check-main > p { max-width: 54ch; line-height: 1.6; }
+.chord-check-choices { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 26px 0; }
+.chord-check-choices button { min-height: 76px; border: 1px solid rgba(255,255,255,.16); border-radius: 12px; background: rgba(255,255,255,.08); color: var(--binding); font-size: 24px; font-weight: 800; cursor: pointer; }
+.chord-check-choices button small { display: block; margin-top: 2px; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .68; }
+.chord-check-choices button.is-selected { background: #f2d8ba; color: var(--rosewood); box-shadow: 0 0 0 2px #efa796; }
+.chord-check-action-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.chord-check-action-row button { min-height: 50px; padding: 0 18px; border: 0; border-radius: 11px; font-weight: 800; cursor: pointer; }
+.chord-check-start { background: #f1aa97; color: #3b2924; }
+.chord-check-secondary { background: #f2d8ba; color: #3b2924; }
+.chord-check-action-row button:disabled { opacity: .5; cursor: wait; }
+.chord-check-status { min-height: 48px; margin: 22px 0 8px; color: #f2d8ba; font-weight: 750; }
+.chord-check-privacy { color: rgba(245,235,219,.68); font-size: 12px; }
+.chord-check-privacy a { color: #f2d8ba; text-underline-offset: 2px; }
+.chord-check-stage { background: #f5eee4; }
+.chord-check-heading { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin: 12px 0 0; }
+.chord-check-heading strong { font-family: 'Fraunces Variable', Georgia, serif; font-size: clamp(36px, 4vw, 60px); line-height: 1.05; }
+#chord-check-countdown { min-width: 60px; color: #d77964; font-family: 'Fraunces Variable', Georgia, serif; font-size: 48px; text-align: center; }
+#chord-check-frets { margin: 4px 0 24px; color: var(--ink-secondary); font-size: 13px; font-weight: 750; }
+.chord-check-diagram { display: grid; gap: 3px; margin: 0 0 22px; }
+.chord-check-string { display: grid; grid-template-columns: 30px 1fr 42px 42px; align-items: center; gap: 12px; min-height: 44px; }
+.chord-check-string span { font-weight: 800; }
+.chord-check-string i { display: block; height: 2px; background: #b59c85; }
+.chord-check-string strong { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #3c2925; color: #f8e9d1; font-size: 15px; }
+.chord-check-string small { color: var(--ink-secondary); }
+.chord-check-result { margin: 24px 0; padding: 20px; border-radius: 14px; background: #fffaf3; box-shadow: 0 3px 15px -10px #3c2925; }
+.chord-check-result[data-outcome='match'] { box-shadow: inset 4px 0 #698d74; }
+.chord-check-result[data-outcome='different'], .chord-check-result[data-outcome='uncertain'] { box-shadow: inset 4px 0 #d77964; }
+.chord-check-result h3 { margin: 8px 0 16px; font-family: 'Fraunces Variable', Georgia, serif; font-size: 25px; }
+.chord-check-result dl { display: grid; gap: 8px; margin: 0; }
+.chord-check-result dl div { display: grid; grid-template-columns: 90px 1fr; gap: 10px; }
+.chord-check-result dt { color: var(--ink-secondary); font-size: 12px; font-weight: 800; text-transform: uppercase; }
+.chord-check-result dd { margin: 0; font-weight: 750; }
+.chord-check-result p, .chord-check-limit { color: var(--ink-secondary); font-size: 12px; line-height: 1.55; }
+.chord-check-workbench button:focus-visible { outline: 3px solid #f1aa97; outline-offset: 3px; }
+@media (max-width: 850px) {
+  .chord-check-workbench { grid-template-columns: 1fr; padding: 10px; }
+  .chord-check-main, .chord-check-stage { padding: 23px; }
+  .chord-check-main h2 { max-width: none; }
+}
+@media (max-width: 700px) and (orientation: portrait) {
+  .mode-switch { overflow-x: auto; justify-content: flex-start; scrollbar-width: none; }
+  .mode-switch::-webkit-scrollbar { display: none; }
+  .mode-switch .mode-button { flex: 0 0 65px; }
+  .mode-switch .mode-button#mode-chord-check { flex-basis: 76px; }
+  .chord-check-workbench { margin-bottom: 84px; }
+  .chord-check-choices { gap: 5px; }
+  .chord-check-choices button { min-height: 60px; font-size: 19px; }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -6779,5 +6845,18 @@ body.is-focus-mode .strum-surface {
   .learning-layer-listen > small,
   .tuner-reference-note {
     display: none;
+  }
+}
+
+@media (max-width: 700px) and (orientation: portrait) {
+  .mode-switch { overflow-x: visible; }
+  .mode-switch .mode-button,
+  .mode-switch .mode-button#mode-chord-check {
+    min-width: 0;
+    flex: 1 1 0;
+    padding-inline: 1px;
+    font-size: 9px;
+    line-height: 1.12;
+    text-align: center;
   }
 }
