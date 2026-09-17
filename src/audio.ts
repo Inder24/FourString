@@ -138,23 +138,34 @@ export class AudioEngine {
   }
 
   playMetronomeClick(accent = false): void {
-    if (!this.context || !this.master || this.context.state !== "running") return;
-    const now = this.context.currentTime;
+    this.scheduleMetronomeBeat(this.currentTime, accent ? 1 : 2, "click");
+  }
+
+  scheduleMetronomeBeat(at: number, beat: number, sound: "click" | "drum" = "click"): () => void {
+    if (!this.context || !this.master || this.context.state !== "running") return () => {};
+    const now = Math.max(at, this.context.currentTime + .004);
+    const accent = beat === 1;
     const oscillator = this.context.createOscillator();
     const clickGain = this.context.createGain();
-    oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(accent ? 1280 : 920, now);
-    oscillator.frequency.exponentialRampToValueAtTime(accent ? 760 : 620, now + 0.035);
+    oscillator.type = sound === "drum" ? "triangle" : "sine";
+    const lowDrum = sound === "drum" && (beat === 1 || beat === 3);
+    oscillator.frequency.setValueAtTime(sound === "click" ? accent ? 1280 : 920 : lowDrum ? 150 : 260, now);
+    oscillator.frequency.exponentialRampToValueAtTime(sound === "click" ? accent ? 760 : 620 : lowDrum ? 54 : 110, now + (sound === "drum" ? .095 : .035));
     clickGain.gain.setValueAtTime(0.0001, now);
-    clickGain.gain.exponentialRampToValueAtTime(accent ? 0.16 : 0.1, now + 0.002);
-    clickGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.055);
+    clickGain.gain.exponentialRampToValueAtTime(sound === "drum" ? lowDrum ? .23 : .11 : accent ? .16 : .1, now + .002);
+    clickGain.gain.exponentialRampToValueAtTime(0.0001, now + (sound === "drum" ? .13 : .055));
     oscillator.connect(clickGain).connect(this.master);
     oscillator.start(now);
-    oscillator.stop(now + 0.06);
+    oscillator.stop(now + (sound === "drum" ? .14 : .06));
     oscillator.addEventListener("ended", () => {
       oscillator.disconnect();
       clickGain.disconnect();
     });
+    return () => {
+      const cancelAt = this.context?.currentTime ?? now;
+      clickGain.gain.cancelScheduledValues(cancelAt);
+      clickGain.gain.setValueAtTime(0, cancelAt);
+    };
   }
 
   private startVoice(stringIndex: number, midi: number, velocity: number, startAt: number): void {

@@ -64,6 +64,10 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M4.5 12a7.5 7.5 0 0 1 15 0M12 5V3m0 18v-2m7-7h2M3 12h2"/></svg>
               Tune
             </button>
+            <button class="mode-button" id="mode-tempo" type="button" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 15h2v4H5zM11 9h2v10h-2zM17 5h2v14h-2zM3 19h18"/></svg>
+              Tempo
+            </button>
           </nav>
 
           <span class="control-separator" aria-hidden="true"></span>
@@ -218,6 +222,38 @@
             </div>
             <div class="tuner-scale-labels"><span>−50</span><strong id="tuner-cents">0 cents</strong><span>+50</span></div>
             <p class="tuner-status" id="tuner-status" aria-live="polite">Microphone is off.</p>
+          </div>
+        </section>
+
+        <section class="tempo-workbench" id="tempo-workbench" aria-labelledby="tempo-title" data-playing="false" hidden>
+          <div class="tempo-copy">
+            <span class="section-kicker">Your own pulse · no microphone needed</span>
+            <h2 id="tempo-title">Find the beat. Keep it.</h2>
+            <p>Set a speed for any lesson, then play along. Beat one is deeper; the four lights show where you are.</p>
+            <div class="tempo-speed-control">
+              <label for="tempo-speed">Tempo speed</label>
+              <div class="tempo-speed-value"><strong id="tempo-bpm">72</strong><span>BPM</span></div>
+              <input id="tempo-speed" type="range" min="40" max="180" step="1" value="72" aria-label="Tempo speed" />
+              <div class="tempo-speed-ends"><span>Slow · 40</span><span>Fast · 180</span></div>
+            </div>
+            <div class="tempo-choice" role="group" aria-label="Beat sound">
+              <button class="is-selected" id="tempo-drum" type="button" aria-pressed="true">Drum</button>
+              <button id="tempo-click" type="button" aria-pressed="false">Click</button>
+            </div>
+            <label class="tempo-subdivision"><input id="tempo-eighths" type="checkbox" /> Add &amp; beats between the numbers</label>
+            <div class="tempo-actions">
+              <button class="tempo-start" id="tempo-start" type="button">Start beat</button>
+              <button class="tempo-tap" id="tempo-tap" type="button">Tap tempo</button>
+            </div>
+          </div>
+          <div class="tempo-stage">
+            <span class="section-kicker">4 / 4 · follow along</span>
+            <div class="tempo-beat-number" id="tempo-beat-number">1</div>
+            <div class="tempo-beats" id="tempo-beats" aria-label="Four-beat pulse">
+              <span class="is-current">1</span><span>2</span><span>3</span><span>4</span>
+            </div>
+            <p id="tempo-status" role="status">Set a tempo, then press Start beat.</p>
+            <small>Use headphones when practising with microphone feedback so the beat is not mistaken for a strum.</small>
           </div>
         </section>
 
@@ -586,6 +622,14 @@
                 <div><dt id="practice-clean-label">Correct moves</dt><dd id="practice-clean">0</dd></div>
                 <div><dt>Try again</dt><dd id="practice-misses">0</dd></div>
               </dl>
+              <div class="practice-tempo-guide">
+                <div class="practice-beat-lane" id="practice-beat-lane" data-running="false" aria-label="Practice beat"><span>1</span><span>2</span><span>3</span><span>4</span></div>
+                <div class="practice-tempo-actions">
+                  <button id="practice-hear-tempo" type="button">Hear current tempo</button>
+                  <label><input id="practice-hear-beat" type="checkbox" /> Hear beat during practice</label>
+                </div>
+                <small>With a real ukulele, use headphones so the microphone hears your strums, not the beat.</small>
+              </div>
               <p class="practice-adjustment" id="practice-adjustment">Tempo changes after three correct moves or two misses.</p>
               <div class="practice-insight-actions">
                 <button id="practice-next" type="button" disabled>Next exercise</button>

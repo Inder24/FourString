@@ -16,10 +16,11 @@ test("filters the lesson library by source status and material type with an hone
   await openSongs(page);
 
   await page.locator("#lesson-status-filter").selectOption("source-backed");
-  await expect(page.locator(".song-result")).toHaveCount(3);
+  await expect(page.locator(".song-result")).toHaveCount(4);
   await page.locator("#lesson-type-filter").selectOption("melody");
-  await expect(page.locator(".song-result")).toHaveCount(1);
-  await expect(page.locator(".song-result")).toHaveAttribute("data-song-id", "twinkle-twinkle");
+  await expect(page.locator(".song-result")).toHaveCount(2);
+  await expect(page.locator(".song-result").first()).toHaveAttribute("data-song-id", "twinkle-twinkle");
+  await expect(page.locator(".song-result").last()).toHaveAttribute("data-song-id", "hedwigs-theme");
 
   await page.locator("#song-search").fill("Khaab");
   await expect(page.locator("#song-results")).toContainText("No lessons match this search and filter combination.");

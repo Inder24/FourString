@@ -5,7 +5,7 @@ import "./lesson-trust.css";
 
 import { AdaptiveCoachController } from "./adaptive-coach-controller";
 import { AudioEngine } from "./audio";
-import { evaluateCoachPitch, gradeRhythmHit, OnsetDetector, NoteConfirmation, PulseDrill, type CoachPitchGrade } from "./coach";
+import { evaluateCoachPitch, OnsetDetector, NoteConfirmation, PulseDrill, type CoachPitchGrade } from "./coach";
 import { chordFretLabel, chordHint, chordNoteNames, gestureHint, stringHint } from "./guidance";
 import {
   chordMidiNotes,
@@ -40,10 +40,13 @@ import {
   type StrumDirection,
 } from "./music";
 import { InstrumentState } from "./state";
+import { BeatSchedule } from './tempo';
+import { TempoPanel } from './tempo-ui';
 import {
   adaptPracticeTempo,
   formatPracticeTime,
   PracticePitchConfirmation,
+  PracticePulseClock,
   practiceStageOffsetSeconds,
   TEN_MINUTE_SECONDS,
   TEN_MINUTE_STAGES,
@@ -52,7 +55,7 @@ import {
 import { createSavedTake, MAX_TAKE_DURATION_MS, MAX_TAKE_EVENTS, parseSavedTake, type SavedTake, type TakeNoteEvent } from "./take";
 import { targetPitch, TUNING_TARGETS, TunerEngine, type PitchReading, type SignalFrame, type TunerStatus } from "./tuner";
 
-type AppView = PlayMode | "tuner" | "coach" | "ai-coach" | "practice" | "chapters";
+type AppView = PlayMode | "tuner" | "tempo" | "coach" | "ai-coach" | "practice" | "chapters";
 type CoachDrill = "strings" | "pulse";
 type HandLayout = "one" | "two";
 type PracticeInput = "screen" | "real";
@@ -137,7 +140,14 @@ let practiceMisses = 0;
 let practiceCleanStreak = 0;
 let practiceMissWindow = 0;
 let practiceTempo = 72;
-let practiceRhythmAnchor = 0;
+let practiceNextTempo: number | null = null;
+const practicePulseClock = new PracticePulseClock();
+const practiceBeatSchedule = new BeatSchedule(72);
+let practiceBeatTimer = 0;
+let practiceBeatVisualTimers: number[] = [];
+let practiceBeatCancelSounds: Array<() => void> = [];
+let practicePreviewCancelSounds: Array<() => void> = [];
+let practicePreviewTimer = 0;
 let practiceTimer = 0;
 let practiceSelectedSong: "lathe-di-chadar" | "khaab" = "lathe-di-chadar";
 let practiceAdjustment = "Tempo changes after three correct moves or two misses.";
@@ -189,6 +199,7 @@ const navPractice = byId<HTMLButtonElement>("nav-practice");
 const modeStrum = byId<HTMLButtonElement>("mode-strum");
 const modeExplore = byId<HTMLButtonElement>("mode-explore");
 const modeTuner = byId<HTMLButtonElement>("mode-tuner");
+const modeTempo = byId<HTMLButtonElement>('mode-tempo');
 const modeCoach = byId<HTMLButtonElement>("mode-coach");
 const modeAiCoach = byId<HTMLButtonElement>("mode-ai-coach");
 const modePractice = byId<HTMLButtonElement>("mode-practice");
@@ -216,6 +227,7 @@ const patternStatus = byId<HTMLElement>("pattern-status");
 const patternTempoRange = byId<HTMLInputElement>("pattern-tempo");
 const patternTempoValue = byId<HTMLOutputElement>("pattern-tempo-value");
 const tunerWorkbench = byId<HTMLElement>("tuner-workbench");
+const tempoWorkbench = byId<HTMLElement>('tempo-workbench');
 const tunerToggle = byId<HTMLButtonElement>("tuner-toggle");
 const tunerMeter = byId<HTMLElement>("tuner-meter");
 const tunerNote = byId<HTMLElement>("tuner-note");
@@ -252,6 +264,9 @@ const aiCoachWorkbench = byId<HTMLElement>("ai-coach-workbench");
 const instrumentSourceChoice = byId<HTMLElement>("instrument-source-choice");
 const instrumentSourceTitle = byId<HTMLElement>("instrument-source-title");
 const practiceWorkbench = byId<HTMLElement>("practice-workbench");
+const practiceBeatLane = byId<HTMLElement>('practice-beat-lane');
+const practiceHearTempo = byId<HTMLButtonElement>('practice-hear-tempo');
+const practiceHearBeat = byId<HTMLInputElement>('practice-hear-beat');
 const practiceKicker = byId<HTMLElement>("practice-kicker");
 const practiceDescription = byId<HTMLElement>("practice-description");
 const practiceInputScreen = byId<HTMLButtonElement>("practice-input-screen");
@@ -352,6 +367,7 @@ const adaptiveCoach = new AdaptiveCoachController({
   tuner,
   ensureAudio: () => initializeAudio({ focusInstrument: false }),
 });
+const tempoPanel = new TempoPanel(tempoWorkbench, audio, () => initializeAudio({ focusInstrument: false }));
 
 const fretGridTemplate = getFretGridTemplate();
 fretLabels.style.gridTemplateColumns = fretGridTemplate;
@@ -468,6 +484,7 @@ function bindControls(): void {
   modeStrum.addEventListener("click", () => setView("strum"));
   modeExplore.addEventListener("click", () => setView("explore"));
   modeTuner.addEventListener("click", () => setView("tuner"));
+  modeTempo.addEventListener('click', () => setView('tempo'));
   modeCoach.addEventListener("click", () => setView("coach"));
   modeAiCoach.addEventListener("click", () => setView("ai-coach"));
   modePractice.addEventListener("click", () => setView("practice"));
@@ -564,6 +581,15 @@ function bindControls(): void {
   });
   practiceNext.addEventListener("click", advancePracticeStage);
   practiceReset.addEventListener("click", resetPracticeSession);
+  practiceHearTempo.addEventListener('click', () => void previewPracticeTempo());
+  practiceHearBeat.addEventListener('change', () => {
+    if (practiceHearBeat.checked && !audio.isReady) {
+      void initializeAudio({ focusInstrument: false }).then((ready) => {
+        if (!ready) practiceHearBeat.checked = false;
+        if (ready && practiceActive && !practicePaused) restartPracticeBeat();
+      });
+    } else if (practiceActive && !practicePaused) restartPracticeBeat();
+  });
   document.querySelectorAll<HTMLButtonElement>("[data-practice-song]").forEach((button) => {
     button.addEventListener("click", () => {
       if (practiceActive) return;
@@ -813,7 +839,7 @@ function startReferenceSequence(
   referencePlayback = playback;
   referenceStep = -1;
   const now = performance.now();
-  const suppressUntil = now + finishAtMs + 900;
+  const suppressUntil = now + finishAtMs + (suppress === 'practice' ? 250 : 900);
   if (suppress === "tuner") tunerReferenceSuppressUntil = suppressUntil;
   if (suppress === "coach") coachReferenceSuppressUntil = suppressUntil;
   if (suppress === "practice") practiceReferenceSuppressUntil = suppressUntil;
@@ -834,6 +860,9 @@ function finishReferenceAudio(): void {
   referenceTimers = [];
   referencePlayback = null;
   referenceStep = -1;
+  if (currentView === 'practice' && practiceActive && !practicePaused) {
+    practiceStatus.textContent = 'Your turn. Play the highlighted target after the reference fades.';
+  }
   renderReferenceControls();
 }
 
@@ -1213,8 +1242,13 @@ function setView(view: AppView): void {
   if (currentView === "coach" && view !== "coach") stopCoach();
   if (currentView === "ai-coach" && view !== "ai-coach") adaptiveCoach.leave();
   if (currentView === "tuner" && view !== "tuner") stopTuner();
+  if (currentView === 'tempo' && view !== 'tempo') tempoPanel.leave();
   if (currentView === "chapters" && view !== "chapters" && lessonInput === "real") stopLessonMicrophone();
   if (currentView === "practice" && view !== "practice" && practiceActive && !practicePaused) pausePracticeSession();
+  if (currentView === 'practice' && view !== 'practice') {
+    stopPracticeBeat();
+    cancelPracticeTempoPreview();
+  }
   if (focusMode && view !== "strum" && view !== "explore") setFocusMode(false);
   currentView = view;
   if (view === "strum" || view === "explore") lastPlayView = view;
@@ -1230,6 +1264,7 @@ function setView(view: AppView): void {
     [navPractice, practiceView],
     [modeAiCoach, view === "ai-coach"],
     [modeTuner, view === "tuner"],
+    [modeTempo, view === 'tempo'],
   ];
   primaryButtons.forEach(([button, selected]) => {
     button.classList.toggle("is-selected", selected);
@@ -1261,6 +1296,11 @@ function setView(view: AppView): void {
       eyebrow: "Tune · Real ukulele",
       title: "Bring every string home.",
       guidance: "Listen to one open string at a time and adjust it toward centre.",
+    },
+    tempo: {
+      eyebrow: 'Tempo · Practice pulse',
+      title: 'Find your tempo.',
+      guidance: 'Set a beat for any song or lesson, then play alongside it.',
     },
     coach: {
       eyebrow: "Practice · Quick drills",
@@ -1297,14 +1337,15 @@ function setView(view: AppView): void {
   instrumentFrame.dataset.view = view;
   patternBuilder.hidden = view !== "explore";
   tunerWorkbench.hidden = view !== "tuner";
+  tempoWorkbench.hidden = view !== 'tempo';
   coachWorkbench.hidden = view !== "coach";
   aiCoachWorkbench.hidden = view !== "ai-coach";
   practiceWorkbench.hidden = view !== "practice";
   lessonWorkbench.hidden = view !== "chapters";
   instrumentSourceChoice.hidden = view !== "practice" && view !== "coach";
-  instrumentFrame.hidden = view === "tuner" || view === "ai-coach" || (view === "coach" && practiceInput === "real");
-  performanceReadout.hidden = view === "tuner" || view === "ai-coach" || (view === "coach" && practiceInput === "real");
-  clearButton.hidden = view === "tuner" || view === "ai-coach" || (view === "coach" && practiceInput === "real");
+  instrumentFrame.hidden = view === "tuner" || view === 'tempo' || view === "ai-coach" || (view === "coach" && practiceInput === "real");
+  performanceReadout.hidden = view === "tuner" || view === 'tempo' || view === "ai-coach" || (view === "coach" && practiceInput === "real");
+  clearButton.hidden = view === "tuner" || view === 'tempo' || view === "ai-coach" || (view === "coach" && practiceInput === "real");
   if (view !== "explore") patternArmed = false;
   if (view === "chapters") renderLesson();
   if (view === "coach") renderCoach();
@@ -2265,8 +2306,8 @@ function handlePracticeMicReading(reading: PitchReading | null, signal: SignalFr
   const chordTargets = practiceChordTargets(stage);
   const expectedChord = chordTargets[Math.min(practiceTargetIndex, chordTargets.length - 1)];
   if (stage.targetKind === "rhythm") {
-    if (practiceTargetIndex === 0) practiceRhythmAnchor = signal.at;
-    const feedback = gradeRhythmHit(signal.at, practiceRhythmAnchor, practiceTempo, practiceTargetIndex);
+    if (practiceTargetIndex === 0) restartPracticeBeat();
+    const feedback = practicePulseClock.grade(signal.at, practiceTargetIndex, practiceTempo);
     const correct = practiceTargetIndex === 0 || feedback.grade === "on-time";
     recordPracticeAttempt(
       correct,
@@ -2278,13 +2319,14 @@ function handlePracticeMicReading(reading: PitchReading | null, signal: SignalFr
 
   recordPracticeAttempt(
     true,
-    `Attack heard for ${expectedChord}. Compare your frets with ${LESSON_CHORDS[expectedChord].frets.join("–")}; microphone scoring checks timing here.`,
+    `${expectedChord} attack accepted ✓ · ${practiceTargetIndex + 1 < chordTargets.length ? `next ${chordTargets[practiceTargetIndex + 1]}` : 'sequence complete'}. Check your own frets; the microphone does not identify chord shapes.`,
   );
   advancePracticeTarget(chordTargets.length);
 }
 
 function startPracticeSession(): void {
   stopReferenceAudio();
+  cancelPracticeTempoPreview();
   if (practiceInput === "screen" && !audio.isReady) {
     practiceStatus.textContent = "The sampled ukulele is still loading. Try starting again in a moment.";
     return;
@@ -2307,7 +2349,8 @@ function startPracticeSession(): void {
   practiceCleanStreak = 0;
   practiceMissWindow = 0;
   practiceTempo = 72;
-  practiceRhythmAnchor = 0;
+  practiceNextTempo = null;
+  practicePulseClock.reset();
   resetPracticePitchTracking("Waiting for G4");
   practiceAdjustment = "Tempo changes after three correct moves or two misses.";
   state.clearAll();
@@ -2318,14 +2361,17 @@ function startPracticeSession(): void {
     : "Session started. Tap string 4 · G on the body or press 4 on the keyboard.";
   renderInstrumentState();
   renderPractice();
+  restartPracticeBeat();
   strumSurface.focus({ preventScroll: true });
 }
 
 function pausePracticeSession(): void {
   if (!practiceActive || practicePaused) return;
+  cancelPracticeTempoPreview();
   practicePaused = true;
   practicePausedAt = Date.now();
   window.clearInterval(practiceTimer);
+  stopPracticeBeat();
   if (practiceInput === "real") tuner.stop();
   practiceStatus.textContent = "Session paused. Your place and working tempo are safe.";
   renderPractice();
@@ -2342,13 +2388,16 @@ async function resumePracticeSession(): Promise<void> {
   practicePaused = false;
   practicePausedAt = 0;
   practiceTimer = window.setInterval(updatePracticeTimer, 250);
+  restartPracticeBeat();
   practiceStatus.textContent = "Back in. Continue with the highlighted target.";
   renderPractice();
 }
 
 function resetPracticeSession(): void {
   stopReferenceAudio();
+  cancelPracticeTempoPreview();
   window.clearInterval(practiceTimer);
+  stopPracticeBeat();
   if (practiceInput === "real") tuner.stop();
   practiceActive = false;
   practicePaused = false;
@@ -2361,8 +2410,9 @@ function resetPracticeSession(): void {
   practiceCleanStreak = 0;
   practiceMissWindow = 0;
   practiceTempo = 72;
+  practiceNextTempo = null;
   practiceAdjustment = "Tempo changes after three correct moves or two misses.";
-  practiceRhythmAnchor = 0;
+  practicePulseClock.reset();
   resetPracticePitchTracking();
   practiceOnsets.reset();
   practiceClock.value = formatPracticeTime(TEN_MINUTE_SECONDS);
@@ -2387,11 +2437,14 @@ function updatePracticeTimer(): void {
     practiceStageIndex = timedStage;
     practiceTargetIndex = 0;
     practiceStageMastered = false;
-    practiceRhythmAnchor = 0;
+    practicePulseClock.reset();
+    practiceCleanStreak = 0;
+    practiceNextTempo = null;
     resetPracticePitchTracking();
     practiceAdjustment = "New stage. The working tempo carries forward.";
     practiceStatus.textContent = `${currentPracticeStage().label} begins. Follow the highlighted target.`;
     renderPractice();
+    restartPracticeBeat();
   }
 }
 
@@ -2405,7 +2458,9 @@ function advancePracticeStage(): void {
   practiceStageIndex += 1;
   practiceTargetIndex = 0;
   practiceStageMastered = false;
-  practiceRhythmAnchor = 0;
+  practicePulseClock.reset();
+  practiceCleanStreak = 0;
+  practiceNextTempo = null;
   resetPracticePitchTracking();
   practiceOnsets.reset();
   practiceAdjustment = "New stage. The working tempo carries forward.";
@@ -2413,10 +2468,13 @@ function advancePracticeStage(): void {
   practiceStatus.textContent = `${currentPracticeStage().label} begins. Take the first target slowly.`;
   renderInstrumentState();
   renderPractice();
+  restartPracticeBeat();
 }
 
 function finishPracticeSession(): void {
+  cancelPracticeTempoPreview();
   window.clearInterval(practiceTimer);
+  stopPracticeBeat();
   if (practiceInput === "real") tuner.stop();
   practiceActive = false;
   practicePaused = false;
@@ -2462,8 +2520,8 @@ function handlePracticeGesture(
       recordPracticeAttempt(false, "Keep this pulse simple: down-strums only.");
       return;
     }
-    if (practiceTargetIndex === 0) practiceRhythmAnchor = at;
-    const feedback = gradeRhythmHit(at, practiceRhythmAnchor, practiceTempo, practiceTargetIndex);
+    if (practiceTargetIndex === 0) restartPracticeBeat();
+    const feedback = practicePulseClock.grade(at, practiceTargetIndex, practiceTempo);
     const correct = practiceTargetIndex === 0 || feedback.grade === "on-time";
     recordPracticeAttempt(
       correct,
@@ -2484,14 +2542,17 @@ function recordPracticeAttempt(correct: boolean, message: string): void {
     practiceMissWindow = 0;
     if (practiceCleanStreak >= 3) {
       const previous = practiceTempo;
-      practiceTempo = adaptPracticeTempo(practiceTempo, practiceCleanStreak, 0);
+      const next = adaptPracticeTempo(practiceTempo, practiceCleanStreak, 0);
+      if (currentPracticeStage().targetKind === 'rhythm' && practiceTargetIndex > 0) practiceNextTempo = next;
+      else practiceTempo = next;
       practiceCleanStreak = 0;
-      practiceInsight.textContent = practiceTempo > previous
-        ? `Three clean attempts. The working tempo rose gently to ${practiceTempo} BPM.`
+      practiceInsight.textContent = next > previous
+        ? `Three clean attempts. Next pass at ${next} BPM.`
         : message;
-      practiceAdjustment = practiceTempo > previous
-        ? `Tempo +${practiceTempo - previous} BPM after three correct moves.`
+      practiceAdjustment = next > previous
+        ? `Next pass: ${next} BPM after three correct moves.`
         : "Tempo is already at the upper practice limit.";
+      if (practiceTempo !== previous) restartPracticeBeat();
     } else practiceInsight.textContent = message;
   } else {
     practiceMisses += 1;
@@ -2499,14 +2560,17 @@ function recordPracticeAttempt(correct: boolean, message: string): void {
     practiceCleanStreak = 0;
     if (practiceMissWindow >= 2) {
       const previous = practiceTempo;
-      practiceTempo = adaptPracticeTempo(practiceTempo, 0, practiceMissWindow);
+      const next = adaptPracticeTempo(practiceTempo, 0, practiceMissWindow);
+      if (currentPracticeStage().targetKind === 'rhythm' && practiceTargetIndex > 0) practiceNextTempo = next;
+      else practiceTempo = next;
       practiceMissWindow = 0;
-      practiceInsight.textContent = practiceTempo < previous
-        ? `Two misses found a useful practice point. Slowing to ${practiceTempo} BPM.`
+      practiceInsight.textContent = next < previous
+        ? `Two misses found a useful practice point. Next pass at ${next} BPM.`
         : message;
-      practiceAdjustment = practiceTempo < previous
-        ? `Tempo −${previous - practiceTempo} BPM after two missed targets.`
+      practiceAdjustment = next < previous
+        ? `Next pass: ${next} BPM after two missed targets.`
         : "Tempo is already at the lower practice limit.";
+      if (practiceTempo !== previous) restartPracticeBeat();
     } else practiceInsight.textContent = message;
   }
   practiceStatus.textContent = message;
@@ -2521,10 +2585,80 @@ function advancePracticeTarget(targetCount: number): void {
     return;
   }
   practiceTargetIndex = 0;
+  practicePulseClock.reset();
+  if (practiceNextTempo !== null) {
+    practiceTempo = practiceNextTempo;
+    practiceNextTempo = null;
+    restartPracticeBeat();
+  }
   practiceStageMastered = true;
   practiceOnsets.reset();
   practiceStatus.textContent = `${currentPracticeStage().label} mastered. Move on now, or repeat it until its time window ends.`;
   renderPractice();
+}
+
+function stopPracticeBeat(): void {
+  window.clearInterval(practiceBeatTimer);
+  practiceBeatSchedule.stop();
+  practiceBeatVisualTimers.forEach((timer) => window.clearTimeout(timer));
+  practiceBeatVisualTimers = [];
+  practiceBeatCancelSounds.forEach((cancel) => cancel());
+  practiceBeatCancelSounds = [];
+  practiceBeatLane.dataset.running = 'false';
+}
+
+function cancelPracticeTempoPreview(): void {
+  window.clearTimeout(practicePreviewTimer);
+  practicePreviewTimer = 0;
+  practicePreviewCancelSounds.forEach((cancel) => cancel());
+  practicePreviewCancelSounds = [];
+  practiceReferenceSuppressUntil = Math.min(practiceReferenceSuppressUntil, performance.now());
+}
+
+function restartPracticeBeat(): void {
+  stopPracticeBeat();
+  if (!practiceActive || practicePaused || practiceComplete || currentView !== 'practice') return;
+  practiceBeatSchedule.setBpm(practicePulseClock.bpm || practiceTempo, performance.now() / 1000);
+  practiceBeatSchedule.start(performance.now() / 1000 + .06);
+  practiceBeatLane.dataset.running = 'true';
+  practiceBeatTimer = window.setInterval(tickPracticeBeat, 25);
+  tickPracticeBeat();
+}
+
+function tickPracticeBeat(): void {
+  const now = performance.now() / 1000;
+  for (const event of practiceBeatSchedule.due(now, .11)) {
+    if (practiceHearBeat.checked && audio.isReady) {
+      practiceBeatCancelSounds.push(audio.scheduleMetronomeBeat(audio.currentTime + event.at - now, event.beat, 'click'));
+    }
+    practiceBeatVisualTimers.push(window.setTimeout(() => {
+      if (practiceActive && !practicePaused && currentView === 'practice') {
+        practiceBeatLane.querySelectorAll('span').forEach((light, index) => light.classList.toggle('is-current', index === event.beat - 1));
+      }
+    }, Math.max(0, (event.at - now) * 1000)));
+  }
+  if (practiceBeatCancelSounds.length > 16) practiceBeatCancelSounds.splice(0, practiceBeatCancelSounds.length - 16);
+}
+
+async function previewPracticeTempo(): Promise<void> {
+  if (!(await initializeAudio({ focusInstrument: false })) || currentView !== 'practice') return;
+  cancelPracticeTempoPreview();
+  const bpm = practicePulseClock.bpm || practiceTempo;
+  const beatMs = 60_000 / bpm;
+  const finishMs = 3 * beatMs + 260;
+  practiceReferenceSuppressUntil = performance.now() + finishMs;
+  practiceStatus.textContent = `Listen to four beats at ${bpm} BPM, then play your target.`;
+  const start = audio.currentTime + .06;
+  for (let beat = 0; beat < 4; beat++) {
+    practicePreviewCancelSounds.push(audio.scheduleMetronomeBeat(start + beat * beatMs / 1000, beat + 1, 'drum'));
+  }
+  practicePreviewTimer = window.setTimeout(() => {
+    practicePreviewCancelSounds = [];
+    if (currentView === 'practice' && practiceActive && !practicePaused) {
+      practiceStatus.textContent = 'Your turn. Play the highlighted target at that pace.';
+    }
+  }, finishMs);
+  if (practiceActive && !practicePaused) restartPracticeBeat();
 }
 
 function practiceChordTargets(stage: PracticeStage): readonly ChordName[] {
@@ -2542,7 +2676,7 @@ function practiceStageDescription(stage: PracticeStage, realPractice: boolean): 
   if (stage.targetKind === "rhythm") {
     return "Strum the shown shape on each pulse. The microphone checks when each audible attack lands.";
   }
-  return `${stage.description} Compare the shown frets, then play once; the microphone confirms the attack and timing.`;
+  return `${stage.description} Compare the shown frets, then strum once; the microphone confirms a new attack, not the chord shape.`;
 }
 
 function renderPractice(): void {
@@ -2564,7 +2698,7 @@ function renderPractice(): void {
   practiceStageLabel.textContent = `${practiceActive ? `Stage ${stage.number} of 5` : "Ready"} · ${Math.ceil(stage.durationSeconds / 60)} ${stage.durationSeconds === 60 ? "minute" : "minutes"}`;
   practiceStageTitle.textContent = stage.title;
   practiceStageCopy.textContent = practiceStageDescription(stage, realPractice);
-  practiceTempoReadout.textContent = `${practiceTempo} BPM`;
+  practiceTempoReadout.textContent = `${stage.targetKind === 'rhythm' && practicePulseClock.bpm ? practicePulseClock.bpm : practiceTempo} BPM`;
   practiceCleanLabel.textContent = realPractice ? "Heard moves" : "Correct moves";
   practiceCleanReadout.textContent = String(practiceClean);
   practiceMissesReadout.textContent = String(practiceMisses);
@@ -3590,7 +3724,7 @@ function physicalStringNumber(stringIndex: number): number {
 }
 
 function isFormControl(target: EventTarget | null): boolean {
-  return target instanceof Element && Boolean(target.closest("input, select, summary, .control-ribbon button, .view-subnav button, .instrument-source-choice button, .pattern-builder button, .audio-gate, .lesson-workbench button, .tuner-workbench button, .coach-workbench button, .ai-coach-workbench button, .practice-workbench button"));
+  return target instanceof Element && Boolean(target.closest("input, select, summary, .control-ribbon button, .view-subnav button, .instrument-source-choice button, .pattern-builder button, .audio-gate, .lesson-workbench button, .tuner-workbench button, .tempo-workbench button, .coach-workbench button, .ai-coach-workbench button, .practice-workbench button"));
 }
 
 function tryCapturePointer(element: Element, pointerId: number): void {

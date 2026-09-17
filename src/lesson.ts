@@ -61,11 +61,11 @@ export interface LessonBackingChordEvent {
 }
 
 export interface LessonSong {
-  id: "lathe-di-chadar" | "khaab" | "sargam" | "twinkle-twinkle" | "yellow" | "im-yours";
+  id: "lathe-di-chadar" | "khaab" | "sargam" | "twinkle-twinkle" | "yellow" | "im-yours" | "hedwigs-theme";
   title: string;
   artist: string;
   genre: string;
-  rights: "Traditional" | "Chord study";
+  rights: "Traditional" | "Chord study" | "Melody study";
   rightsDetail: string;
   key: string;
   meter: string;
@@ -308,6 +308,45 @@ const IM_YOURS_CHAPTERS: readonly LessonChapter[] = [
   },
 ] as const;
 
+const HEDWIG_CHAPTERS: readonly LessonChapter[] = [
+  {
+    id: 1,
+    shortTitle: "Find the motif",
+    title: "Find the first four notes",
+    description: "Start on string 3, fret 2. Pick the highlighted notes gently, one at a time; the long note gets room to ring.",
+    bpm: 54,
+    guidedPattern: "D · G · B♭ · A",
+    fullPattern: "Listen · pick · let it ring",
+    guidedEvents: [],
+    fullEvents: [],
+    technique: "melody",
+  },
+  {
+    id: 2,
+    shortTitle: "Connect phrases",
+    title: "Carry the melody across the strings",
+    description: "Join the four short phrases in a gentle three-beat pulse. Watch the shift between strings 2 and 1.",
+    bpm: 64,
+    guidedPattern: "1 · 2 · 3 / 1 · 2 · 3",
+    fullPattern: "Four phrases · one flowing pulse",
+    guidedEvents: [],
+    fullEvents: [],
+    technique: "melody",
+  },
+  {
+    id: 3,
+    shortTitle: "Full opening",
+    title: "Play the short opening in one take",
+    description: "Keep the pickup light and give the final note time to fade. This is a simplified, melody-only ukulele study.",
+    bpm: 76,
+    guidedPattern: "Soft pickup · steady waltz",
+    fullPattern: "The short G-minor opening",
+    guidedEvents: [],
+    fullEvents: [],
+    technique: "melody",
+  },
+] as const;
+
 export const LESSON_SONGS: readonly LessonSong[] = [
   {
     id: "lathe-di-chadar",
@@ -522,6 +561,69 @@ export const LESSON_SONGS: readonly LessonSong[] = [
       { label: "Loop step 4 · complete the cycle", native: "Resolve on F, then return to C", chords: ["F"] },
     ],
     chapters: IM_YOURS_CHAPTERS,
+  },
+  {
+    id: "hedwigs-theme",
+    provenance: {
+      type: "melody",
+      tuning: ["G4", "C4", "E4", "A4"],
+      arrangementVersion: "Four Strings simplified G-minor opening v1.0",
+      status: "source-backed",
+      playable: true,
+      sources: [
+        {
+          title: "Hedwig’s Theme — Uke Can Do It",
+          url: "https://uke-can-do-it.com/musictab-pdfs/movietv-themes/harry-potter-hedwigs-theme-ukulele/",
+          supports: "A G-minor ukulele transposition whose opening stays within the first five frets; fingerstyle is recommended.",
+        },
+        {
+          title: "Hedwig’s Theme — Hoffman Academy",
+          url: "https://app.hoffmanacademy.com/lessons/piano/hedwigs-theme/video/",
+          supports: "The opening melody pitches, transposed here from E minor to G minor for a low-fret ukulele path.",
+        },
+      ],
+    },
+    title: "Hedwig’s Theme",
+    artist: "John Williams · Harry Potter",
+    genre: "Film melody",
+    rights: "Melody study",
+    rightsDetail: "unofficial short, simplified fingerpicking study · no original recording or published score included",
+    key: "Gm",
+    meter: "3/4",
+    beatsPerBar: 3,
+    searchTerms: "harry potter hedwig theme john williams wizard film g minor fingerpicking melody",
+    skillLabel: "Low-fret fingerpicking",
+    lines: [
+      {
+        label: "The opening whisper",
+        native: "Light pickup · let G ring",
+        chords: [],
+        beats: 3,
+        notes: melody([[3, 2, 0, undefined, 0.5], [2, 3, 0.5, undefined, 1.5], [1, 1, 2, undefined, 0.5], [1, 0, 2.5, undefined, 0.5]]),
+      },
+      {
+        label: "The high answer",
+        native: "Reach fret 5 on string 1",
+        chords: [],
+        beats: 3,
+        notes: melody([[2, 3, 0, undefined, 1.5], [1, 5, 1.5, undefined, 0.5], [1, 3, 2, undefined, 0.5], [1, 0, 2.5, undefined, 0.5]]),
+      },
+      {
+        label: "The little twist",
+        native: "Listen for the unusual F♯",
+        chords: [],
+        beats: 3,
+        notes: melody([[2, 3, 0, undefined, 1.5], [1, 1, 1.5, undefined, 0.5], [1, 0, 2, undefined, 0.5], [2, 2, 2.5, undefined, 0.5]]),
+      },
+      {
+        label: "The held ending",
+        native: "A♭ leads back to high D",
+        chords: [],
+        beats: 3,
+        notes: melody([[2, 4, 0, undefined, 1], [1, 5, 1, undefined, 2]]),
+      },
+    ],
+    chapters: HEDWIG_CHAPTERS,
   },
 ] as const;
 

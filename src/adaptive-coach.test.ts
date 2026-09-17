@@ -48,6 +48,18 @@ describe("adaptive rhythm analysis", () => {
     expect(detector.push(0.001, 1200)).toBe(false);
     expect(detector.push(0.08, 1300)).toBe(true);
   });
+
+  it("counts quieter attacks while the previous strum is still ringing", () => {
+    const detector = new AdaptiveOnsetDetector();
+    detector.addCalibrationSample(0.002);
+    detector.finishCalibration();
+    const frames: Array<[number, number]> = [
+      [0, .002], [16, .024], [32, .04], [64, .036], [180, .029],
+      [500, .025], [800, .021], [832, .028], [848, .037],
+      [1200, .027], [1648, .021], [1664, .027], [1680, .036],
+    ];
+    expect(frames.filter(([at, rms]) => detector.push(rms, at)).map(([at]) => at)).toEqual([16, 832, 1664]);
+  });
 });
 
 describe("Astra coaching contract", () => {

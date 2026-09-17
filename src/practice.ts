@@ -1,5 +1,6 @@
 import { clamp, type StrumDirection } from "./music";
 import type { ChordName } from "./lesson";
+import { gradeRhythmHit, type RhythmFeedback } from "./coach";
 
 export type PracticeStageId = "settle" | "shapes" | "changes" | "rhythm" | "song";
 
@@ -71,6 +72,25 @@ export const TEN_MINUTE_STAGES: readonly PracticeStage[] = [
 ] as const;
 
 export const TEN_MINUTE_SECONDS = TEN_MINUTE_STAGES.reduce((sum, stage) => sum + stage.durationSeconds, 0);
+
+/** A phrase retains its starting tempo even when the next target BPM adapts. */
+export class PracticePulseClock {
+  private anchor = 0;
+  bpm = 0;
+
+  grade(at: number, beatIndex: number, workingBpm: number): RhythmFeedback {
+    if (beatIndex === 0 || this.bpm === 0) {
+      this.anchor = at;
+      this.bpm = workingBpm;
+    }
+    return gradeRhythmHit(at, this.anchor, this.bpm, beatIndex);
+  }
+
+  reset(): void {
+    this.anchor = 0;
+    this.bpm = 0;
+  }
+}
 
 export type PitchEvidence = "match" | "quiet" | "mismatch";
 

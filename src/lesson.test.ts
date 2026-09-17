@@ -13,9 +13,9 @@ import {
 } from "./lesson";
 
 describe("guided song chapters", () => {
-  it("offers six searchable courses with three chapters each", () => {
+  it("offers seven searchable courses with three chapters each", () => {
     expect(LESSON_SONGS.map((song) => song.title)).toEqual([
-      "Lathe Di Chadar", "Khaab", "Sa Re Ga Ma", "Twinkle Twinkle", "Yellow", "I’m Yours",
+      "Lathe Di Chadar", "Khaab", "Sa Re Ga Ma", "Twinkle Twinkle", "Yellow", "I’m Yours", "Hedwig’s Theme",
     ]);
     expect(LESSON_SONGS.every((song) => song.lines.length === 4 && song.chapters.length === 3)).toBe(true);
     expect(filterLessonSongs("folk").map((song) => song.id)).toEqual(["lathe-di-chadar"]);
@@ -24,6 +24,7 @@ describe("guided song chapters", () => {
     expect(filterLessonSongs("nursery").map((song) => song.id)).toEqual(["twinkle-twinkle"]);
     expect(filterLessonSongs("coldplay").map((song) => song.id)).toEqual(["yellow"]);
     expect(filterLessonSongs("jason mraz").map((song) => song.id)).toEqual(["im-yours"]);
+    expect(filterLessonSongs("harry potter").map((song) => song.id)).toEqual(["hedwigs-theme"]);
     expect(filterLessonSongs("missing")).toEqual([]);
   });
 
@@ -87,6 +88,27 @@ describe("guided song chapters", () => {
     expect(imYours.chapters.map((chapter) => chapter.shortTitle)).toEqual(["Four-chord loop", "Sunny picking", "Island strum"]);
     expect(imYours.chapters[2].fullPattern).toBe("D · D-U · U-D-U");
     expect(imYours.rightsDetail).toContain("lyrics and melody not included");
+  });
+
+  it("teaches a short G-minor Hedwig opening with a playable low-fret note path", () => {
+    const hedwig = LESSON_SONGS.find((song) => song.id === "hedwigs-theme")!;
+    const openMidi = [67, 60, 64, 69];
+    const notes = hedwig.lines.flatMap((line) => line.notes ?? []);
+
+    expect(hedwig.key).toBe("Gm");
+    expect(hedwig.meter).toBe("3/4");
+    expect(hedwig.provenance).toMatchObject({ type: "melody", status: "source-backed", playable: true });
+    expect(canPracticeLessonSong(hedwig)).toBe(true);
+    expect(hedwig.chapters.map((chapter) => chapter.technique)).toEqual(["melody", "melody", "melody"]);
+    expect(notes.map((note) => openMidi[note.stringIndex] + note.fret)).toEqual([
+      62, 67, 70, 69, 67, 74, 72, 69, 67, 70, 69, 66, 68, 74,
+    ]);
+    expect(notes.map((note) => [4 - note.stringIndex, note.fret])).toEqual([
+      [3, 2], [2, 3], [1, 1], [1, 0], [2, 3], [1, 5], [1, 3], [1, 0],
+      [2, 3], [1, 1], [1, 0], [2, 2], [2, 4], [1, 5],
+    ]);
+    expect(hedwig.lines.every((line) => line.beats === 3 && line.chords.length === 0)).toBe(true);
+    expect(hedwig.rightsDetail).toContain("unofficial");
   });
 
   it("blocks unverified arrangements without deleting their course data", () => {

@@ -136,10 +136,11 @@ describe("practice score export", () => {
 describe("lesson library filtering", () => {
   it("combines search with provenance and lesson-type filters", () => {
     expect(filterLessonLibrary(LESSON_SONGS, "", { status: "source-backed", type: "all" }).map((song) => song.id)).toEqual([
-      "twinkle-twinkle", "yellow", "im-yours",
+      "twinkle-twinkle", "yellow", "im-yours", "hedwigs-theme",
     ]);
     expect(filterLessonLibrary(LESSON_SONGS, "", { status: "original", type: "all" }).map((song) => song.id)).toEqual(["sargam"]);
     expect(filterLessonLibrary(LESSON_SONGS, "yellow", { status: "source-backed", type: "accompaniment" }).map((song) => song.id)).toEqual(["yellow"]);
+    expect(filterLessonLibrary(LESSON_SONGS, "harry potter", { status: "source-backed", type: "melody" }).map((song) => song.id)).toEqual(["hedwigs-theme"]);
     expect(filterLessonLibrary(LESSON_SONGS, "khaab", { status: "source-backed", type: "all" })).toEqual([]);
   });
 });

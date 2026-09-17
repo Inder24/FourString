@@ -30,4 +30,10 @@ describe("listen and coach analysis", () => {
     expect(detector.push(0.004, 240)).toBe(false);
     expect(detector.push(0.09, 260)).toBe(true);
   });
+
+  it("accepts a fresh chord strum over a decaying chord without counting its tail twice", () => {
+    const detector = new OnsetDetector(.018, 220);
+    const frames: Array<[number, number]> = [[0,.003],[20,.04],[40,.055],[100,.05],[260,.041],[500,.03],[820,.027],[840,.034],[860,.048],[900,.052]];
+    expect(frames.filter(([at,rms]) => detector.push(rms,at)).map(([at]) => at)).toEqual([20,840]);
+  });
 });

@@ -1659,6 +1659,7 @@ input[type="range"]:focus-visible {
 }
 
 .tuner-workbench[hidden],
+.tempo-workbench[hidden],
 .coach-workbench[hidden],
 .practice-workbench[hidden],
 .lesson-workbench[hidden],
@@ -1732,6 +1733,61 @@ input[type="range"]:focus-visible {
   background: rgba(247, 241, 231, 0.66);
   box-shadow: var(--shadow-raised);
 }
+
+.tempo-workbench {
+  display: grid;
+  grid-template-columns: minmax(280px, .9fr) minmax(320px, 1.1fr);
+  gap: 14px;
+  margin: 0 8px 20px;
+  padding: 16px;
+  border-radius: 22px;
+  background: rgba(247, 241, 231, .72);
+  box-shadow: var(--shadow-raised);
+}
+
+.tempo-copy { padding: clamp(18px, 3vw, 38px); }
+.tempo-copy h2 {
+  margin: 0;
+  max-width: 390px;
+  font: 560 clamp(30px, 4vw, 52px)/1.03 "Fraunces Variable", serif;
+  letter-spacing: -.045em;
+}
+.tempo-copy > p { max-width: 420px; color: var(--ink-secondary); font-size: 13px; line-height: 1.6; }
+.tempo-speed-control { margin-top: 24px; }
+.tempo-speed-control > label { color: var(--ink-tertiary); font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.tempo-speed-value { display: flex; align-items: baseline; gap: 8px; color: var(--rosewood); }
+.tempo-speed-value strong { font: 550 clamp(56px, 7vw, 96px)/1 "Fraunces Variable", serif; font-variant-numeric: tabular-nums; }
+.tempo-speed-value span { font-size: 12px; font-weight: 800; letter-spacing: .12em; }
+.tempo-speed-control input { width: 100%; accent-color: var(--plucked-coral); }
+.tempo-speed-ends { display: flex; justify-content: space-between; color: var(--ink-tertiary); font-size: 10px; }
+.tempo-choice { display: inline-flex; gap: 4px; margin-top: 22px; padding: 4px; border-radius: 10px; background: var(--control-inset); }
+.tempo-choice button, .tempo-tap, .practice-tempo-actions button {
+  min-height: 44px; padding: 0 18px; border: 0; border-radius: 8px; color: var(--ink-secondary); background: transparent; font: inherit; font-size: 12px; font-weight: 740; cursor: pointer;
+}
+.tempo-choice button.is-selected { color: var(--parchment-raised); background: var(--rosewood); }
+.tempo-subdivision { display: flex; align-items: center; gap: 9px; min-height: 44px; margin: 8px 0; color: var(--ink-secondary); font-size: 12px; cursor: pointer; }
+.tempo-subdivision input, .practice-tempo-actions input { width: 17px; height: 17px; accent-color: var(--plucked-coral); }
+.tempo-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.tempo-start { min-height: 48px; min-width: 150px; border: 0; border-radius: 10px; color: var(--parchment-raised); background: var(--plucked-coral); font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+.tempo-tap { background: var(--control-inset); }
+.tempo-stage { min-height: 440px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px; border-radius: 17px; color: var(--binding); background: radial-gradient(circle at 50% 35%, #62413a 0, var(--rosewood) 58%); text-align: center; }
+.tempo-stage .section-kicker { color: rgba(239, 224, 190, .58); }
+.tempo-beat-number { font: 520 clamp(126px, 20vw, 240px)/1 "Fraunces Variable", serif; font-variant-numeric: tabular-nums; }
+.tempo-beats, .practice-beat-lane { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.tempo-beats span { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; color: rgba(239,224,190,.5); background: rgba(239,224,190,.1); font-size: 12px; font-weight: 800; transition: transform .12s ease, background .12s ease, color .12s ease; }
+.tempo-beats .is-current { color: var(--rosewood); background: var(--binding); transform: scale(1.11); }
+.tempo-stage p { min-height: 20px; margin: 28px 0 5px; font-size: 13px; font-weight: 700; }
+.tempo-stage small { max-width: 340px; color: rgba(239,224,190,.62); font-size: 11px; line-height: 1.5; }
+.tempo-workbench button:focus-visible, .practice-tempo-guide button:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
+
+.practice-tempo-guide { margin-top: 16px; padding: 14px; border-radius: 12px; background: var(--control-inset); }
+.practice-beat-lane { justify-content: flex-start; gap: 6px; }
+.practice-beat-lane span { min-width: 38px; height: 38px; display: grid; place-items: center; border-radius: 8px; color: var(--ink-secondary); background: rgba(58,37,34,.09); font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.practice-beat-lane[data-running="true"] .is-current { color: var(--rosewood); background: var(--binding); box-shadow: inset 0 -3px 0 var(--plucked-coral); }
+.practice-tempo-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 10px; }
+.practice-tempo-actions button { min-height: 38px; padding-inline: 10px; background: var(--parchment-raised); }
+.practice-tempo-actions label { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; color: var(--ink-secondary); font-size: 11px; cursor: pointer; }
+.practice-tempo-guide > small { display: block; margin-top: 7px; color: var(--ink-tertiary); font-size: 10px; line-height: 1.45; }
 
 .tuner-copy {
   align-self: center;
@@ -5146,6 +5202,25 @@ body.is-focus-mode .strum-surface {
     min-height: 48px;
     padding-top: 8px;
   }
+}
+
+@media (max-width: 700px) {
+  .tempo-workbench {
+    grid-template-columns: minmax(0, 1fr);
+    margin-inline: 0;
+    padding: 10px;
+  }
+
+  .tempo-copy { padding: 18px 14px; }
+  .tempo-stage { min-height: 260px; padding: 20px; }
+  .tempo-beat-number { font-size: 110px; }
+}
+
+@media (max-width: 700px) and (orientation: portrait) {
+  .mode-switch .mode-button { padding-inline: 2px; font-size: 10px; }
+  body[data-app-view="tempo"] .workbench-heading { margin: 10px 4px 12px; }
+  body[data-app-view="tempo"] .workbench-heading > div { display: none; }
+  body[data-app-view="tempo"] .mode-guidance { max-width: none; margin: 0; text-align: left; font-size: 11px; }
 }
 
 /* Adaptive AI Coach — a timing workbench, not a chat interface. */

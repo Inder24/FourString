@@ -377,6 +377,9 @@ export class AdaptiveOnsetDetector {
   private floor = 0.018;
   private previousRms = 0;
   private lastOnsetAt = -Infinity;
+  private peakRms = 0;
+  private troughRms = Infinity;
+  private rearmed = false;
 
   addCalibrationSample(rms: number): void {
     if (Number.isFinite(rms) && rms >= 0) this.calibration.push(rms);
@@ -387,14 +390,29 @@ export class AdaptiveOnsetDetector {
     this.floor = clamp(median(this.calibration) * 3.2, 0.012, 0.12);
     this.previousRms = 0;
     this.lastOnsetAt = -Infinity;
+    this.peakRms = 0;
+    this.troughRms = Infinity;
+    this.rearmed = false;
     return this.floor;
   }
 
   push(rms: number, at: number): boolean {
-    const rising = rms >= this.floor && (this.previousRms < this.floor * 0.7 || rms > this.previousRms * 1.55);
+    if (Number.isFinite(this.lastOnsetAt)) {
+      this.peakRms = Math.max(this.peakRms, rms);
+      this.troughRms = Math.min(this.troughRms, rms);
+      if (rms <= this.peakRms * .82) this.rearmed = true;
+    }
+    const freshAttack = this.rearmed && rms >= this.troughRms * 1.23
+      && rms - this.troughRms >= this.floor * .35;
+    const rising = rms >= this.floor && (this.previousRms < this.floor * 0.7 || rms > this.previousRms * 1.55 || freshAttack);
     const detected = rising && at - this.lastOnsetAt >= 150;
     this.previousRms = rms;
-    if (detected) this.lastOnsetAt = at;
+    if (detected) {
+      this.lastOnsetAt = at;
+      this.peakRms = rms;
+      this.troughRms = rms;
+      this.rearmed = false;
+    }
     return detected;
   }
 
@@ -403,6 +421,9 @@ export class AdaptiveOnsetDetector {
     this.floor = 0.018;
     this.previousRms = 0;
     this.lastOnsetAt = -Infinity;
+    this.peakRms = 0;
+    this.troughRms = Infinity;
+    this.rearmed = false;
   }
 }
 

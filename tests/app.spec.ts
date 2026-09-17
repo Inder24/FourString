@@ -78,9 +78,9 @@ test("labels all four strings on the neck and body", async ({ page }) => {
   await expect(page.locator(".string-identity small")).toHaveText(["4", "3", "2", "1"]);
 });
 
-test("groups the product into four primary destinations with drills under Practice", async ({ page }) => {
+test("groups the product into five primary destinations with drills under Practice", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator(".mode-switch .mode-button")).toHaveText(["Play", "Practice", "AI Coach", "Tune"]);
+  await expect(page.locator(".mode-switch .mode-button")).toHaveText(["Play", "Practice", "AI Coach", "Tune", "Tempo"]);
   await expect(page.locator("#play-subnav")).toBeVisible();
   await expect(page.locator("#practice-subnav")).toBeHidden();
 
@@ -290,7 +290,7 @@ test("switches between the searchable lesson library and each course's chapter s
   await page.getByRole("button", { name: "Practice", exact: true }).click();
   await page.getByRole("button", { name: "Songs", exact: true }).click();
   await expect(page.locator("#lesson-song-title")).toHaveText("Lathe Di Chadar");
-  await expect(page.locator(".song-result")).toHaveCount(6);
+  await expect(page.locator(".song-result")).toHaveCount(7);
   await expect(page.locator(".chapter-tab strong")).toHaveText(["Folk pulse", "Folk picking", "Wedding strum"]);
   await expect(page.locator(".lesson-line")).toHaveCount(4);
   await expect(page.locator(".lesson-native").first()).toContainText("ਲੱਠੇ");
@@ -358,6 +358,29 @@ test("adds Twinkle melody, quick transition, beginner strum, and backing chapter
   await page.locator("#lesson-hear-bar").click();
   await expect(page.locator("#lesson-hear-bar")).toHaveAttribute("aria-pressed", "true");
   await page.locator("#lesson-hear-bar").click();
+});
+
+test("plays the short Hedwig fingerpicking study and advances its note cue", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  await page.getByRole("button", { name: "Songs", exact: true }).click();
+  await page.locator("#song-search").fill("harry potter");
+  await expect(page.locator(".song-result")).toHaveCount(1);
+  await page.locator('.song-result[data-song-id="hedwigs-theme"]').click();
+
+  await expect(page.locator("#lesson-song-title")).toHaveText("Hedwig’s Theme");
+  await expect(page.locator("#lesson-tempo")).toContainText("3/4");
+  await expect(page.locator(".chapter-tab strong")).toHaveText(["Find the motif", "Connect phrases", "Full opening"]);
+  await expect(page.locator(".lesson-line").first().locator(".lesson-note strong")).toHaveText(["3,2", "2,3", "1,1", "1,0"]);
+  await expect(page.locator("#lesson-cue-frets")).toContainText("3,2 · D4");
+
+  await page.getByRole("button", { name: "Hear 4-line demo", exact: true }).click();
+  await expect(page.locator("#lesson-cue")).toHaveAttribute("data-state", "demo");
+  await page.getByRole("button", { name: "Stop demo", exact: true }).click();
+  await page.getByRole("button", { name: "Start practice", exact: true }).click();
+  await page.locator('.fret-cell[data-string="1"][data-fret="2"]').click();
+  await page.keyboard.press("Digit3");
+  await expect(page.locator("#lesson-cue-frets")).toContainText("2,3 · G4");
 });
 
 test("adds playable Yellow and I’m Yours three-chapter studies", async ({ page }) => {

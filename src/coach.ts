@@ -128,6 +128,9 @@ export function gradeRhythmHit(hitAt: number, anchorAt: number, bpm: number, bea
 export class OnsetDetector {
   private previousRms = 0;
   private lastOnsetAt = -Infinity;
+  private peakRms = 0;
+  private troughRms = Infinity;
+  private rearmed = false;
 
   constructor(
     private readonly floor = 0.018,
@@ -135,15 +138,30 @@ export class OnsetDetector {
   ) {}
 
   push(rms: number, at: number): boolean {
-    const rising = rms >= this.floor && (this.previousRms < this.floor * 0.72 || rms > this.previousRms * 1.6);
+    if (Number.isFinite(this.lastOnsetAt)) {
+      this.peakRms = Math.max(this.peakRms, rms);
+      this.troughRms = Math.min(this.troughRms, rms);
+      if (rms <= this.peakRms * .82) this.rearmed = true;
+    }
+    const freshAttack = this.rearmed && rms >= this.troughRms * 1.23
+      && rms - this.troughRms >= this.floor * .35;
+    const rising = rms >= this.floor && (this.previousRms < this.floor * 0.72 || rms > this.previousRms * 1.6 || freshAttack);
     const detected = rising && at - this.lastOnsetAt >= this.cooldownMs;
     this.previousRms = rms;
-    if (detected) this.lastOnsetAt = at;
+    if (detected) {
+      this.lastOnsetAt = at;
+      this.peakRms = rms;
+      this.troughRms = rms;
+      this.rearmed = false;
+    }
     return detected;
   }
 
   reset(): void {
     this.previousRms = 0;
     this.lastOnsetAt = -Infinity;
+    this.peakRms = 0;
+    this.troughRms = Infinity;
+    this.rearmed = false;
   }
 }

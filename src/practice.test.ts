@@ -3,12 +3,22 @@ import {
   adaptPracticeTempo,
   formatPracticeTime,
   PracticePitchConfirmation,
+  PracticePulseClock,
   practiceStageOffsetSeconds,
   TEN_MINUTE_SECONDS,
   TEN_MINUTE_STAGES,
 } from "./practice";
 
 describe("adaptive ten-minute practice", () => {
+  it("keeps a phrase at its starting tempo even if the adaptive target changes", () => {
+    const clock = new PracticePulseClock();
+    expect(clock.grade(1000, 0, 72).grade).toBe("on-time");
+    expect(clock.grade(1833, 1, 80).grade).toBe("on-time");
+    expect(clock.bpm).toBe(72);
+    clock.reset();
+    expect(clock.grade(5000, 0, 80).grade).toBe("on-time");
+    expect(clock.grade(5750, 1, 80).grade).toBe("on-time");
+  });
   it("defines five stages totaling ten minutes", () => {
     expect(TEN_MINUTE_STAGES).toHaveLength(5);
     expect(TEN_MINUTE_SECONDS).toBe(600);
