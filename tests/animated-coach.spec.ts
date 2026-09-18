@@ -61,6 +61,7 @@ test("attributes AI coaching without labeling local-only destinations", async ({
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.locator(".ai-coach-header").screenshot({ path: testInfo.outputPath("attribution-header.png") });
   for (const name of ["Play", "Practice", "Quick drills", "Tune"]) {
+    if (name === "Tune" && await page.locator("#nav-tools").isVisible()) await page.locator("#nav-tools").click();
     await page.getByRole("button", { name, exact: true }).click();
     await expect(page.getByText("Powered by GPT-6 Astra", { exact: true }).filter({ visible: true })).toHaveCount(0);
   }
@@ -146,6 +147,7 @@ test("can cancel a focused demonstration, replay without recording, and leave cl
   await expect(page.locator("#ai-coach-workbench")).toHaveAttribute("data-phase", "correction");
   await expect(page.locator("#ai-live-signal")).toContainText("Mic off");
   await page.locator("#ai-watch-focus").click();
+  if (await page.locator("#nav-tools").isVisible()) await page.locator("#nav-tools").click();
   await page.getByRole("button", { name: "Tune", exact: true }).click();
   await page.clock.runFor(10000);
   await page.getByRole("button", { name: "AI Coach", exact: true }).click();

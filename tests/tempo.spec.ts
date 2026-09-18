@@ -1,8 +1,14 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+async function openTempo(page: Page): Promise<void> {
+  const tools = page.locator('#nav-tools');
+  if (await tools.isVisible() && await tools.getAttribute('aria-expanded') === 'false') await tools.click();
+  await page.getByRole('button', { name: 'Tempo', exact: true }).click();
+}
 
 test('Tempo is a playable independent metronome with tap tempo and stops on navigation', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Tempo', exact: true }).click();
+  await openTempo(page);
   await expect(page.locator('#tempo-workbench')).toBeVisible();
   await page.getByRole('slider', { name: 'Tempo speed' }).fill('100');
   await expect(page.locator('#tempo-bpm')).toHaveText('100');
@@ -10,7 +16,7 @@ test('Tempo is a playable independent metronome with tap tempo and stops on navi
   await expect(page.locator('#tempo-workbench')).toHaveAttribute('data-playing', 'true');
   await expect(page.locator('#tempo-beats .is-current')).toHaveCount(1);
   await page.getByRole('button', { name: 'Play', exact: true }).click();
-  await page.getByRole('button', { name: 'Tempo', exact: true }).click();
+  await openTempo(page);
   await expect(page.locator('#tempo-workbench')).toHaveAttribute('data-playing', 'false');
   await page.getByRole('button', { name: 'Tap tempo' }).click();
   await page.waitForTimeout(500);
@@ -37,7 +43,7 @@ test('practice shows a live beat lane and an optional audible cue', async ({ pag
 
 test('Tempo can vary a few BPM after every four or eight beats while staying in a continuous loop', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Tempo', exact: true }).click();
+  await openTempo(page);
   await page.getByRole('slider', { name: 'Tempo speed' }).fill('180');
   await page.getByRole('checkbox', { name: 'Gentle variation' }).check();
   await page.getByRole('combobox', { name: 'Change every' }).selectOption('4');

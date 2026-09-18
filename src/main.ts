@@ -2,6 +2,7 @@ import "@fontsource-variable/manrope";
 import "@fontsource-variable/fraunces/wght.css";
 import "./style.css";
 import "./lesson-trust.css";
+import "./studio.css";
 
 import { AdaptiveCoachController } from "./adaptive-coach-controller";
 import { AudioEngine } from "./audio";
@@ -166,7 +167,7 @@ let tunerReferenceSuppressUntil = 0;
 let coachReferenceSuppressUntil = 0;
 let practiceReferenceSuppressUntil = 0;
 let lastPlayView: PlayMode = "strum";
-let lastPracticeView: "practice" | "chapters" | "coach" = "practice";
+let lastPracticeView: "practice" | "coach" = "practice";
 let handLayout: HandLayout = storedPreference("four-strings-hand-layout") === "one"
   ? "one"
   : storedPreference("four-strings-hand-layout") === "two"
@@ -199,6 +200,9 @@ const noteOrb = byId<HTMLElement>("note-orb");
 const ripple = byId<HTMLElement>("ripple");
 const navPlay = byId<HTMLButtonElement>("nav-play");
 const navPractice = byId<HTMLButtonElement>("nav-practice");
+const navSongs = byId<HTMLButtonElement>("nav-songs");
+const navTools = byId<HTMLButtonElement>("nav-tools");
+const railTools = byId<HTMLElement>("rail-tools");
 const modeStrum = byId<HTMLButtonElement>("mode-strum");
 const modeExplore = byId<HTMLButtonElement>("mode-explore");
 const modeTuner = byId<HTMLButtonElement>("mode-tuner");
@@ -488,6 +492,13 @@ function bindControls(): void {
   });
   navPlay.addEventListener("click", () => setView(lastPlayView));
   navPractice.addEventListener("click", () => setView(lastPracticeView));
+  navSongs.addEventListener("click", () => setView("chapters"));
+  navTools.addEventListener("click", () => setToolsMenu(navTools.getAttribute("aria-expanded") !== "true"));
+  document.addEventListener("pointerdown", (event) => {
+    if (navTools.getAttribute("aria-expanded") !== "true") return;
+    if (event.target instanceof Node && (navTools.contains(event.target) || railTools.contains(event.target))) return;
+    setToolsMenu(false);
+  });
   modeStrum.addEventListener("click", () => setView("strum"));
   modeExplore.addEventListener("click", () => setView("explore"));
   modeTuner.addEventListener("click", () => setView("tuner"));
@@ -1242,7 +1253,13 @@ function renderLessonGuidance(activeLabel?: string): void {
     : `Preview at ${Math.round(referenceSpeed * 100)}% · audio starts only when you ask.`;
 }
 
+function setToolsMenu(open: boolean): void {
+  navTools.setAttribute("aria-expanded", String(open));
+  railTools.dataset.open = String(open);
+}
+
 function setView(view: AppView): void {
+  setToolsMenu(false);
   stopPatternPlayback();
   stopLessonDemo();
   stopReferenceAudio();
@@ -1262,16 +1279,17 @@ function setView(view: AppView): void {
   if (focusMode && view !== "strum" && view !== "explore") setFocusMode(false);
   currentView = view;
   if (view === "strum" || view === "explore") lastPlayView = view;
-  if (view === "practice" || view === "chapters" || view === "coach") lastPracticeView = view;
+  if (view === "practice" || view === "coach") lastPracticeView = view;
   document.body.dataset.appView = view;
   const instrumentMode: PlayMode = view === "explore" ? "explore" : "strum";
   state.setMode(instrumentMode);
   activeFretPointers.clear();
   const playView = view === "strum" || view === "explore";
-  const practiceView = view === "practice" || view === "chapters" || view === "coach";
+  const practiceView = view === "practice" || view === "coach";
   const primaryButtons: Array<[HTMLButtonElement, boolean]> = [
     [navPlay, playView],
-    [navPractice, practiceView],
+    [navPractice, view === "practice" || view === "coach"],
+    [navSongs, view === "chapters"],
     [modeAiCoach, view === "ai-coach"],
     [modeTuner, view === "tuner"],
     [modeTempo, view === 'tempo'],
@@ -1281,6 +1299,9 @@ function setView(view: AppView): void {
     button.classList.toggle("is-selected", selected);
     button.setAttribute("aria-pressed", String(selected));
   });
+  const toolsView = view === "tuner" || view === "tempo" || view === "chord-check";
+  navTools.classList.toggle("is-selected", toolsView);
+  navTools.setAttribute("aria-pressed", String(toolsView));
   const secondaryButtons: Array<[HTMLButtonElement, AppView]> = [
     [modeStrum, "strum"],
     [modeExplore, "explore"],
@@ -1295,8 +1316,8 @@ function setView(view: AppView): void {
   const viewCopy: Record<AppView, { eyebrow: string; title: string; guidance: string }> = {
     strum: {
       eyebrow: "Play · Standard GCEA",
-      title: "Play the strings.",
-      guidance: "Set a shape, tap for a chord, or sweep for a natural strum.",
+      title: "Good to see you.",
+      guidance: "Pick or strum. Real sound. Real progress.",
     },
     explore: {
       eyebrow: "Play · Fingerpicking",
@@ -1525,6 +1546,12 @@ function handleStrumPointerCancel(event: PointerEvent): void {
 }
 
 function handleKeyboard(event: KeyboardEvent): void {
+  if (event.key === "Escape" && navTools.getAttribute("aria-expanded") === "true") {
+    event.preventDefault();
+    setToolsMenu(false);
+    navTools.focus({ preventScroll: true });
+    return;
+  }
   if (
     event.key === "/" &&
     currentView === "chapters" &&

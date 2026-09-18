@@ -1,7 +1,18 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+async function openToolsIfCompact(page: Page): Promise<void> {
+  const tools = page.locator('#nav-tools');
+  if (await tools.isVisible() && await tools.getAttribute('aria-expanded') === 'false') await tools.click();
+}
+
+async function openChordCheck(page: Page): Promise<void> {
+  await openToolsIfCompact(page);
+  await page.getByRole('button', { name: 'Check my chord' }).click();
+}
 
 test('Check my chord is beside Tempo and exposes a local, confidence-aware flow', async ({ page }) => {
   await page.goto('/');
+  await openToolsIfCompact(page);
   const nav = page.getByRole('navigation', { name: 'Primary' });
   await expect(nav.getByRole('button', { name: 'Check my chord' })).toBeVisible();
   const labels = await nav.getByRole('button').allTextContents();
@@ -47,10 +58,11 @@ test('a captured C strum reaches the on-device result, then releases the microph
     });
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Check my chord' }).click();
+  await openChordCheck(page);
   await page.getByRole('button', { name: 'Listen to my chord' }).click();
   await expect(page.locator('#chord-check-status')).toContainText('Checking notes', { timeout: 20_000 });
   await expect(page.locator('#chord-check-result-title')).toContainText('C major sounds likely', { timeout: 40_000 });
+  await openToolsIfCompact(page);
   await page.getByRole('button', { name: 'Tempo', exact: true }).click();
   await expect(page.locator('#chord-check-workbench')).toBeHidden();
 });
@@ -58,6 +70,7 @@ test('a captured C strum reaches the on-device result, then releases the microph
 test('phone layout keeps every top-level destination and the chord controls reachable', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
+  await openToolsIfCompact(page);
   const chordNav = page.getByRole('button', { name: 'Check my chord' });
   const box = await chordNav.boundingBox();
   expect(box).not.toBeNull();
@@ -92,7 +105,7 @@ test('uncertain chord can be checked string by string without a recording codec'
     });
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Check my chord' }).click();
+  await openChordCheck(page);
   await page.getByRole('button', { name: 'Listen to my chord' }).click();
   await page.getByRole('button', { name: 'Check strings one by one' }).click();
   await expect(page.locator('#chord-check-result-title')).toHaveText('Each string sounded right ✓', { timeout: 10_000 });
@@ -117,7 +130,7 @@ test('count-in can be cancelled and releases its microphone track', async ({ pag
     });
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Check my chord' }).click();
+  await openChordCheck(page);
   await page.getByRole('button', { name: 'Listen to my chord' }).click();
   await expect(page.locator('#chord-check-countdown')).toHaveText('3');
   await page.getByRole('button', { name: 'Cancel chord check' }).click();

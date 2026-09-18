@@ -6,9 +6,19 @@ async function enableAudio(page: Page): Promise<void> {
   await expect(page.locator("#instrument-frame")).toHaveAttribute("data-audio-ready", "true", { timeout: 15_000 });
 }
 
+async function openToolsIfCompact(page: Page): Promise<void> {
+  const tools = page.locator("#nav-tools");
+  if (await tools.isVisible() && await tools.getAttribute("aria-expanded") === "false") await tools.click();
+}
+
+async function openTuner(page: Page): Promise<void> {
+  await openToolsIfCompact(page);
+  await page.locator("#mode-tuner").click();
+}
+
 test("loads the real sample instrument and latches a mouse shape", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator("#instrument-title")).toHaveText("Play the strings.");
+  await expect(page.locator("#instrument-title")).toHaveText("Good to see you.");
   await enableAudio(page);
 
   const cChordAString = page.locator('.fret-cell[data-string="3"][data-fret="3"]');
@@ -18,7 +28,8 @@ test("loads the real sample instrument and latches a mouse shape", async ({ page
   await expect(page.locator("#readout-label")).toHaveText("Last chord");
   await expect(page.locator("#last-note")).toHaveText("Frets 0–0–0–3 · G4 · C4 · E4 · C5");
 
-  await page.getByRole("button", { name: "Clear" }).click();
+  await openToolsIfCompact(page);
+  await page.getByRole("button", { name: "Clear frets" }).click();
   await expect(cChordAString).not.toHaveClass(/is-latched/);
 });
 
@@ -48,6 +59,7 @@ test("supports keyboard navigation, plucking, and reverse strum", async ({ page 
 test("updates volume and toggles mute from the utility controls", async ({ page }) => {
   await page.goto("/");
   await enableAudio(page);
+  await openToolsIfCompact(page);
   await page.getByRole("slider", { name: "Volume" }).fill("35");
   await expect(page.getByRole("slider", { name: "Volume" })).toHaveValue("35");
 
@@ -78,9 +90,16 @@ test("labels all four strings on the neck and body", async ({ page }) => {
   await expect(page.locator(".string-identity small")).toHaveText(["4", "3", "2", "1"]);
 });
 
-test("groups the product into six primary destinations with drills under Practice", async ({ page }) => {
+test("groups Play, Learn, and Tools with drills under Practice", async ({ page, isMobile }) => {
   await page.goto("/");
-  await expect(page.locator(".mode-switch .mode-button")).toHaveText(["Play", "Practice", "AI Coach", "Tune", "Tempo", "Check chord"]);
+  await expect(page.locator("#nav-play")).toBeVisible();
+  await expect(page.locator("#nav-practice")).toBeVisible();
+  await expect(page.locator("#nav-songs")).toBeVisible();
+  await expect(page.locator("#mode-ai-coach")).toBeVisible();
+  if (isMobile) await page.locator("#nav-tools").click();
+  await expect(page.locator("#mode-tuner")).toBeVisible();
+  await expect(page.locator("#mode-tempo")).toBeVisible();
+  await expect(page.locator("#mode-chord-check")).toBeVisible();
   await expect(page.locator("#play-subnav")).toBeVisible();
   await expect(page.locator("#practice-subnav")).toBeHidden();
 
@@ -104,6 +123,7 @@ test("supports one-hand latching and two-hand touch holds", async ({ page }) => 
   await expect(fret).toHaveClass(/is-latched/);
 
   await page.getByRole("button", { name: "Two hands", exact: true }).click();
+  await openToolsIfCompact(page);
   await page.getByRole("button", { name: "Clear frets", exact: true }).click();
   await fret.dispatchEvent("pointerdown", { pointerId: 32, pointerType: "touch", pressure: 0.5 });
   await expect(fret).toHaveClass(/is-held/);
@@ -115,7 +135,7 @@ test("routes real-ukulele learners directly to tuning", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "I have my ukulele", exact: true }).click();
   await expect(page.locator("#tuner-workbench")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Tune", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#mode-tuner")).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Practice", exact: true }).click();
   await expect(page.getByRole("button", { name: "My ukulele", exact: true })).toHaveAttribute("aria-pressed", "true");
 });
@@ -126,7 +146,7 @@ test("starts practice in one click without redirecting to the tuner", async ({ p
   await expect(page.locator("#tuner-workbench")).toBeVisible();
 
   await page.reload();
-  await expect(page.locator("#instrument-title")).toHaveText("Play the strings.");
+  await expect(page.locator("#instrument-title")).toHaveText("Good to see you.");
   await page.getByRole("button", { name: "Practice", exact: true }).click();
   await page.getByRole("button", { name: "On-screen ukulele", exact: true }).click();
   await page.getByRole("button", { name: "Start session", exact: true }).click();
@@ -595,7 +615,7 @@ test("plays an unscored coach reference before the learner responds", async ({ p
 
 test("offers a target reference inside the tuner and keeps it out of analysis", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Tune", exact: true }).click();
+  await openTuner(page);
   await page.getByRole("button", { name: "3 C", exact: true }).click();
   await expect(page.locator("#tuner-hear-target")).toContainText("Hear C4 reference");
   await page.locator("#tuner-hear-target").click();
@@ -613,7 +633,7 @@ test("shows a retryable tuner error when microphone permission is denied", async
     });
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Tune" }).click();
+  await openTuner(page);
   await page.getByRole("button", { name: "Start listening" }).click();
   await expect(page.locator("#tuner-status")).toContainText("Microphone access was denied");
   await expect(page.getByRole("button", { name: "Try again" })).toBeEnabled();
@@ -621,7 +641,7 @@ test("shows a retryable tuner error when microphone permission is denied", async
 
 test("selects every tuner target without leaving the tuner", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Tune" }).click();
+  await openTuner(page);
   for (const target of ["4 G", "3 C", "2 E", "1 A", "Auto"]) {
     const button = page.getByRole("button", { name: target, exact: true });
     await button.click();
@@ -666,7 +686,7 @@ test("holds the last tuner reading when a ringing note fades", async ({ page }) 
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Tune" }).click();
+  await openTuner(page);
   await page.getByRole("button", { name: "Start listening" }).click();
   await expect(page.locator("#tuner-note")).toHaveText("G");
   await expect(page.locator("#tuner-meter")).toHaveAttribute("data-signal", "held");
@@ -709,7 +729,7 @@ test("shows the correct tuning direction and locked-string target", async ({ pag
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Tune" }).click();
+  await openTuner(page);
   await page.getByRole("button", { name: "4 G" }).click();
   await page.getByRole("button", { name: "Start listening" }).click();
   await expect(page.locator("#tuner-note")).toHaveText("G");

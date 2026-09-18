@@ -1,0 +1,342 @@
+/* Selected Modern Luthier Studio direction. This final layer owns presentation,
+   while the original component selectors continue to own interaction geometry. */
+.rail-group { display: contents; }
+.rail-heading, .rail-description, .mobile-tools-button { display: none; }
+
+/* A warm, dark workbench wraps the existing playable instrument. The wood is
+   texture only: frets, strings, pointer targets and sound remain live DOM. */
+body {
+  color: #f3e9db;
+  background: #211b18;
+}
+body::before {
+  content: "";
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(20, 16, 14, .76), rgba(24, 19, 16, .4) 45%, rgba(19, 16, 14, .72)), url('/studio/workbench-backdrop.png') center / cover no-repeat;
+  pointer-events: none;
+}
+.app-shell { width: 100%; max-width: none; position: relative; z-index: 1; }
+.topbar { border-color: rgba(243, 230, 206, .14); }
+.brand, .topbar .tuning-pill strong { color: #f3e9db; }
+.brand-name { font-size: 23px; }
+.brand-mark { color: #3b2822; background: #f2e8d8; }
+.brand-kicker, .topbar .tuning-pill span { color: #b6a79b; }
+.topbar .tuning-pill {
+  background: rgba(34, 28, 25, .64);
+  box-shadow: inset 0 0 0 1px rgba(241, 223, 193, .2);
+}
+.audio-status { color: #dacbbb; }
+.workbench-heading { align-items: end; margin-bottom: clamp(20px, 3vw, 40px); }
+.workbench-heading .eyebrow { color: #e9a795; letter-spacing: .24em; }
+.workbench-heading h1 {
+  max-width: 800px;
+  color: #fff8ee;
+  font-size: clamp(42px, 5.6vw, 78px);
+  line-height: 1.04;
+  text-shadow: 0 10px 35px rgba(12, 8, 7, .3);
+}
+.mode-guidance { max-width: 310px; color: #d3c3b3; font-size: 14px; }
+.view-subnav {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 20px;
+  padding: 5px 8px;
+  color: #dacbbb;
+  background: rgba(26, 22, 20, .67);
+  box-shadow: inset 0 0 0 1px rgba(240, 222, 195, .13);
+}
+.view-subnav .subnav-switch, .view-subnav .hand-layout { background: rgba(255, 245, 226, .09); }
+.view-subnav .subnav-switch button, .view-subnav .hand-layout button, .view-subnav .focus-button { color: #ddd0c0; }
+.view-subnav .subnav-switch button.is-selected, .view-subnav .hand-layout button.is-selected, .view-subnav .focus-button.is-selected {
+  color: #3b2822;
+  background: #f2d8ba;
+}
+.view-subnav .subnav-note { color: #d0c0b2; }
+.instrument-frame {
+  padding: clamp(10px, 1.5vw, 20px);
+  background: rgba(27, 22, 20, .42);
+  box-shadow: inset 0 0 0 1px rgba(244, 225, 191, .16), 0 30px 85px rgba(8, 6, 5, .28);
+}
+.fret-labels { color: #d9c7b5; }
+.fretboard {
+  background-color: #3f2922;
+  background-image: linear-gradient(90deg, rgba(28, 17, 14, .15), rgba(23, 14, 12, .05)), url('/studio/wood-textures.png');
+  background-position: center, right center;
+  background-size: auto, 200% 100%;
+  box-shadow: inset 0 10px 22px rgba(15, 8, 6, .22), 0 15px 30px rgba(9, 6, 5, .34);
+}
+.strum-surface {
+  background-color: #a86940;
+  background-image: linear-gradient(110deg, rgba(255, 222, 176, .08), rgba(70, 31, 15, .08)), url('/studio/wood-textures.png');
+  background-position: center, left center;
+  background-size: auto, 200% 100%;
+  box-shadow: inset 0 12px 28px rgba(255, 219, 175, .09), 0 18px 35px rgba(9, 6, 5, .38);
+}
+.body-binding { border-width: 3px; border-color: rgba(255, 233, 192, .84); }
+.audio-gate {
+  inset: 10px;
+  align-items: end;
+  justify-content: center;
+  padding: 16px;
+  border-radius: 18px;
+  color: #f7e9d6;
+  background: linear-gradient(0deg, rgba(22, 16, 14, .42), transparent 70%);
+  box-shadow: none;
+}
+.gate-card {
+  width: min(760px, 100%);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 15px 18px;
+  border-radius: 17px;
+  background: rgba(38, 28, 24, .94);
+  box-shadow: inset 0 0 0 1px rgba(244, 222, 190, .24), 0 16px 40px rgba(10, 7, 6, .38);
+  backdrop-filter: blur(10px);
+}
+.gate-card > div:nth-child(2) { min-width: 0; flex: 1; }
+.gate-card h2 { margin: 3px 0 0; font-size: 23px; line-height: 1.1; }
+.gate-card .gate-actions { min-width: 160px; margin: 0; }
+.gate-card .gate-pick { width: 52px; height: 52px; border-radius: 15px; }
+.audio-gate .popover-kicker { color: #efb4a1; }
+.audio-gate p { color: #dac8b7; }
+.audio-gate .gate-pick { background: #eb9781; color: #3c2822; }
+.audio-gate .real-uke-button { color: #3a2823; }
+.performance-readout {
+  width: min(100%, 740px);
+  min-height: 66px;
+  margin: 22px auto 0;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: rgba(31, 26, 23, .75);
+  box-shadow: inset 0 0 0 1px rgba(240, 223, 193, .16), 0 12px 30px rgba(10, 7, 6, .2);
+}
+.performance-readout .note-orb { background: #ed9b84; color: #30211d; }
+.performance-readout .readout-label { color: #f1ae9c; }
+#last-note, .input-hint, .input-hint strong { color: #eadccd; }
+.input-icon { background: rgba(255, 255, 255, .08); }
+.footer-note { color: #b4a395; border-color: rgba(245, 228, 198, .15); }
+.tuner-workbench, .tempo-workbench, .coach-workbench, .practice-workbench,
+.lesson-workbench, .ai-coach-workbench, .chord-check-workbench {
+  color: var(--ink);
+  background: #f7f1e7;
+  box-shadow: 0 25px 75px rgba(10, 7, 6, .24), inset 0 0 0 1px rgba(255, 244, 226, .18);
+}
+.tuner-workbench:not([hidden]), .tempo-workbench:not([hidden]), .coach-workbench:not([hidden]),
+.practice-workbench:not([hidden]), .lesson-workbench:not([hidden]),
+.ai-coach-workbench:not([hidden]), .chord-check-workbench:not([hidden]) {
+  animation: studio-arrive 350ms cubic-bezier(.2, .8, .2, 1) both;
+}
+@keyframes studio-arrive {
+  from { opacity: .5; }
+  to { opacity: 1; }
+}
+
+@media (min-width: 1100px) {
+  .app-shell { padding: 24px 40px 18px 298px; }
+  .topbar { min-height: 52px; justify-content: flex-end; padding: 0 0 18px; }
+  .brand { position: fixed; z-index: 46; top: 30px; left: 27px; }
+  .topbar-meta { gap: 24px; }
+  .play-workbench { justify-content: flex-start; padding-top: clamp(48px, 8vh, 100px); }
+  .control-ribbon {
+    position: fixed;
+    z-index: 40;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 264px;
+    min-height: 0;
+    margin: 0;
+    padding: 118px 17px 22px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    border-radius: 0;
+    background: rgba(25, 21, 19, .91);
+    box-shadow: inset -1px 0 rgba(242, 222, 193, .11), 18px 0 48px rgba(10, 8, 6, .16);
+    backdrop-filter: blur(18px);
+  }
+  .mode-switch, .rail-group { display: flex; flex-direction: column; align-items: stretch; width: 100%; }
+  .mode-switch { flex: 1; gap: 0; padding: 0; background: none; }
+  .rail-group { gap: 4px; }
+  .rail-group-play { margin-bottom: 13px; }
+  .rail-group-learn { margin-bottom: 17px; }
+  .rail-group-tools { flex: 1; }
+  .rail-heading {
+    display: block;
+    margin: 0 0 7px 11px;
+    color: #ad9e92;
+    font-size: 11px;
+    font-weight: 780;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .rail-heading-tools { margin-top: 1px; }
+  .rail-description {
+    display: block;
+    margin-top: 3px;
+    color: #aea095;
+    font-size: 10px;
+    font-weight: 570;
+    line-height: 1.2;
+  }
+  .mode-switch .mode-button {
+    min-height: 58px;
+    width: 100%;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 7px 12px;
+    color: #ebded0;
+    border-radius: 11px;
+    font-size: 13px;
+    text-align: left;
+  }
+  .mode-switch .mode-button svg { width: 21px; height: 21px; flex: 0 0 auto; }
+  .mode-switch .mode-button:hover { color: #fff5ea; background: rgba(255, 244, 224, .08); }
+  .mode-switch .mode-button.is-selected {
+    color: #fff8ef;
+    background: rgba(220, 172, 141, .18);
+    box-shadow: inset 0 0 0 1px rgba(248, 203, 173, .19);
+  }
+  .mode-switch .mode-button.is-selected svg { color: #f0a08c; }
+  .mode-switch .mode-button.is-selected .rail-description { color: #d7bfb0; }
+  .control-separator { width: 100%; height: 1px; margin: auto 0 0; background: rgba(245, 229, 205, .19); }
+  .utility-button { align-self: flex-start; color: #e8d9c8; }
+  .volume-control { width: 100%; color: #e8d9c8; }
+  .volume-control input { flex: 1; }
+  .icon-button, .help-menu summary { color: #e8d9c8; }
+  .help-menu { align-self: flex-start; }
+  .help-popover { left: calc(100% + 12px); bottom: 0; }
+  .instrument-frame { margin-top: clamp(12px, 3vh, 34px); }
+}
+
+@media (max-width: 1099px) {
+  .app-shell { padding: 18px 24px 20px; }
+  .control-ribbon {
+    background: rgba(29, 24, 21, .83);
+    box-shadow: inset 0 0 0 1px rgba(243, 225, 195, .16);
+  }
+  .mode-switch { width: 100%; min-width: 0; flex-wrap: wrap; background: rgba(255, 240, 214, .08); }
+  .mode-switch .mode-button { min-width: auto; color: #eadac9; }
+  .mode-switch .mode-button.is-selected { color: #392621; background: #f2d8ba; }
+  .utility-button, .icon-button, .help-menu summary { color: #eadac9; }
+  .control-separator { background: rgba(240, 224, 198, .2); }
+}
+
+@media (min-width: 1100px) and (max-height: 800px) {
+  :root { --instrument-height: clamp(245px, 37vh, 285px); }
+  .play-workbench { padding-top: 30px; padding-bottom: 16px; }
+  .workbench-heading { margin-bottom: 20px; }
+  .workbench-heading h1 { font-size: clamp(42px, 5vw, 66px); }
+  .instrument-frame { margin-top: 12px; }
+  .performance-readout { margin-top: 13px; }
+  .footer-note { padding-top: 8px; }
+}
+
+@media (max-width: 700px) and (orientation: portrait) {
+  :root { --instrument-height: 190px; }
+  body::before { background-position: 57% center; }
+  .app-shell { padding: 13px 13px calc(104px + env(safe-area-inset-bottom)); }
+  .topbar { padding-bottom: 12px; }
+  .brand-name { font-size: 19px; }
+  .brand-mark { width: 34px; height: 34px; }
+  .topbar-meta { gap: 4px; }
+  .audio-status { font-size: 10px; }
+  .play-workbench { justify-content: flex-start; padding: 8px 0 24px; }
+  body:not(.is-focus-mode) .workbench-heading { display: block; margin: 0 2px 8px; }
+  body[data-app-view] .workbench-heading > div { display: block; }
+  .workbench-heading .eyebrow { margin-bottom: 10px; font-size: 9px; }
+  .workbench-heading h1 { font-size: clamp(35px, 10vw, 52px); }
+  .mode-guidance { max-width: 28ch; margin-top: 10px; text-align: left; font-size: 12px; }
+  body:not([data-app-view="strum"]):not([data-app-view="explore"]) .mode-guidance { display: none; }
+  .control-ribbon {
+    position: fixed;
+    z-index: 40;
+    left: 9px;
+    right: 9px;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    min-height: 60px;
+    width: auto;
+    margin: 0;
+    padding: 6px;
+    flex-wrap: nowrap;
+    border-radius: 17px;
+    background: rgba(31, 25, 22, .96);
+    box-shadow: inset 0 0 0 1px rgba(246, 224, 193, .19), 0 10px 32px rgba(5, 4, 3, .36);
+    backdrop-filter: blur(14px);
+  }
+  .mode-switch { display: flex; flex: 1; min-width: 0; width: 100%; justify-content: space-around; flex-wrap: nowrap; overflow: visible; padding: 0; background: none; }
+  .mode-switch .rail-group { display: contents; }
+  .mode-switch .mode-button {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 48px;
+    padding: 4px 2px;
+    flex-direction: column;
+    gap: 1px;
+    color: #dfd1c1;
+    font-size: 9px;
+    line-height: 1.1;
+  }
+  .mode-switch .mode-button svg { display: block; width: 17px; height: 17px; }
+  .mode-switch .mode-button.is-selected { color: #33231f; background: #f2d8ba; }
+  .control-ribbon > .control-separator, .control-ribbon > .utility-button,
+  .control-ribbon > .volume-control, .control-ribbon > .icon-button,
+  .control-ribbon > .help-menu { display: none; }
+  .view-subnav { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; margin: 0 0 8px; padding: 6px; border-radius: 14px; }
+  .view-subnav[hidden] { display: none; }
+  .view-subnav .subnav-switch { grid-column: 1; width: 100%; }
+  .view-subnav .subnav-switch button { flex: 1; }
+  .view-subnav .hand-layout { grid-column: 1 / -1; grid-row: 2; width: 100%; order: initial; }
+  .view-subnav .focus-button { grid-column: 2; grid-row: 1; order: initial; }
+  .view-subnav .subnav-note { display: none; }
+  .practice-subnav .subnav-switch { grid-column: 1 / -1; }
+  .instrument-frame { padding: 8px; border-radius: 20px; }
+  .body-module { padding-top: 4px; }
+  .audio-gate { inset: 8px; padding: 6px; }
+  .gate-card { display: grid; gap: 5px; padding: 12px; }
+  .audio-gate .gate-pick { display: none; }
+  .audio-gate h2 { font-size: 18px; }
+  .audio-gate p { font-size: 10px; }
+  .audio-gate .gate-actions { display: flex; width: 100%; margin: 5px 0 0; }
+  .audio-gate .gate-actions button { flex: 1; min-width: 0; padding: 0 5px; font-size: 10px; }
+  .performance-readout { width: 100%; margin-top: 16px; padding: 10px 13px; border-radius: 14px; }
+  .performance-readout .input-hint { display: none; }
+  .footer-note { display: flex; font-size: 7px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tuner-workbench:not([hidden]), .tempo-workbench:not([hidden]), .coach-workbench:not([hidden]),
+  .practice-workbench:not([hidden]), .lesson-workbench:not([hidden]),
+  .ai-coach-workbench:not([hidden]), .chord-check-workbench:not([hidden]) { animation: none; }
+}
+
+@media (max-width: 700px) and (orientation: portrait) {
+  .rail-group-tools[data-open="false"] { display: none; }
+  .rail-group-tools[data-open="true"] {
+    position: fixed;
+    z-index: 45;
+    right: 12px;
+    bottom: calc(78px + env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 190px;
+    max-height: calc(100vh - 105px);
+    overflow-y: auto;
+    padding: 7px;
+    border-radius: 16px;
+    background: #30241f;
+    box-shadow: inset 0 0 0 1px rgba(246, 224, 193, .22), 0 20px 36px rgba(5, 4, 3, .38);
+  }
+  .rail-group-tools[data-open="true"] .mode-button { justify-content: flex-start; width: 100%; }
+  .rail-group-tools .control-separator { width: 100%; height: 1px; margin: 4px 0; background: rgba(245, 229, 205, .18); }
+  .rail-group-tools .utility-button, .rail-group-tools .icon-button, .rail-group-tools .help-menu summary { min-height: 44px; color: #e9dacc; }
+  .rail-group-tools .utility-button { justify-content: flex-start; }
+  .rail-group-tools .volume-control { width: 100%; min-height: 44px; }
+  .rail-group-tools .volume-control input { flex: 1; }
+  .rail-group-tools .help-popover { right: 0; bottom: 48px; width: min(300px, calc(100vw - 24px)); }
+  .mobile-tools-button { display: inline-flex; }
+}
