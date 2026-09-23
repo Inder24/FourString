@@ -1,7 +1,7 @@
 import { chordMidiNotes, type ChordName } from './lesson';
 import { midiToNoteName } from './music';
 
-export const CHECKABLE_CHORDS = ['C', 'Am', 'F', 'G'] as const satisfies readonly ChordName[];
+export const CHECKABLE_CHORDS = ['C', 'Am', 'F', 'G', 'G7'] as const satisfies readonly ChordName[];
 export type CheckableChord = typeof CHECKABLE_CHORDS[number];
 
 export interface TranscribedNote {
@@ -21,7 +21,8 @@ export interface ChordCheckResult {
 }
 
 const classOf = (midi: number): number => ((midi % 12) + 12) % 12;
-const expectedClasses = (chord: CheckableChord): number[] => [...new Set(chordMidiNotes(chord).map(classOf))];
+const expectedClasses = (chord: CheckableChord): number[] => [...new Set(chordMidiNotes(chord).map(classOf))]
+  .sort((left, right) => left - right);
 const noteLabel = (pitchClass: number): string => midiToNoteName(60 + pitchClass).replace(/\d$/, '');
 
 export function classifyChordNotes(target: CheckableChord, notes: readonly TranscribedNote[]): ChordCheckResult {

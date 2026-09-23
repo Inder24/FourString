@@ -30,6 +30,13 @@ describe('chord checking', () => {
     expect(result.likelyChord).toBe('G');
   });
 
+  it('recognises the complete G7 pitch-class set', () => {
+    const result = classifyChordNotes('G7', notes(67, 62, 65, 71));
+    expect(result.status).toBe('match');
+    expect(result.likelyChord).toBe('G7');
+    expect(result.expectedNotes).toEqual(['D', 'F', 'G', 'B']);
+  });
+
   it('asks for another try when silence or only transients were heard', () => {
     expect(classifyChordNotes('F', []).status).toBe('uncertain');
     expect(classifyChordNotes('F', [{ ...notes(65)[0], durationSeconds: 0.02 }]).status).toBe('uncertain');
