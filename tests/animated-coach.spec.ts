@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
-import { installTeachingFixture, completeCalibration, captureStrums } from './helpers/ai-fixture';
+import { installTeachingFixture, completeCalibration, captureStrums, openAiCoach } from './helpers/ai-fixture';
 
 test("prepares for five seconds then shows the audible countdown and PLAY", async ({ page }) => {
   await installTeachingFixture(page);
@@ -150,7 +150,7 @@ test("can cancel a focused demonstration, replay without recording, and leave cl
   if (await page.locator("#nav-tools").isVisible()) await page.locator("#nav-tools").click();
   await page.getByRole("button", { name: "Tune", exact: true }).click();
   await page.clock.runFor(10000);
-  await page.getByRole("button", { name: "AI Coach", exact: true }).click();
+  await openAiCoach(page);
   await expect(page.locator("#ai-coach-workbench")).toHaveAttribute("data-phase", "setup");
   await expect(page.locator("#ai-strumming-guide")).toHaveAttribute("data-moving", "false");
 });

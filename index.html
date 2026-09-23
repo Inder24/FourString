@@ -75,6 +75,10 @@
             </div>
             <span class="rail-heading rail-heading-tools">Tools</span>
             <div class="rail-group rail-group-tools" id="rail-tools" data-open="false">
+              <button class="mode-button mobile-ai-coach-button" id="mobile-mode-ai-coach" type="button" aria-pressed="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13h2l1.5-5 3 10 3-13 2.5 8H20"/><path d="m18 4 .6 1.4L20 6l-1.4.6L18 8l-.6-1.4L16 6l1.4-.6L18 4Z"/></svg>
+                <span>AI Coach<small class="rail-description" aria-hidden="true">Get focused help</small></span>
+              </button>
               <button class="mode-button" id="mode-tuner" type="button" aria-pressed="false">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M4.5 12a7.5 7.5 0 0 1 15 0M12 5V3m0 18v-2m7-7h2M3 12h2"/></svg>
                 <span>Tune<small class="rail-description" aria-hidden="true">Keep it in tune</small></span>
@@ -122,7 +126,7 @@
             </div>
           </details>
             </div>
-            <button class="mode-button mobile-tools-button" id="nav-tools" type="button" aria-label="Tools" aria-expanded="false" aria-controls="rail-tools" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v2m0 15v2M2.5 12h2m15 0h2M5.3 5.3l1.4 1.4m10.6 10.6 1.4 1.4m0-13.4-1.4 1.4M6.7 17.3l-1.4 1.4"/></svg><span>Tools</span></button>
+            <button class="mode-button mobile-tools-button" id="nav-tools" type="button" aria-label="More" aria-expanded="false" aria-controls="rail-tools" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v2m0 15v2M2.5 12h2m15 0h2M5.3 5.3l1.4 1.4m10.6 10.6 1.4 1.4m0-13.4-1.4 1.4M6.7 17.3l-1.4 1.4"/></svg><span>More</span></button>
           </nav>
         </div>
 
@@ -885,6 +889,7 @@
         </section>
 
         <div class="instrument-frame" id="instrument-frame" data-audio-ready="false" data-mode="strum">
+          <button class="course-dock-close" id="course-dock-close" type="button">Collapse fretboard</button>
           <div class="instrument-layout">
             <div class="neck-region">
               <div class="neck-scroll" id="neck-scroll">

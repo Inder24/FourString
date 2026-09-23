@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { completeCalibration, captureStrums } from './helpers/ai-fixture';
+import { completeCalibration, captureStrums, openAiCoach } from './helpers/ai-fixture';
 
 async function enableAudio(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Play on screen", exact: true }).click();
@@ -1009,7 +1009,7 @@ test("shows all AI Coach patterns and a clear API setup state", async ({ page })
     body: JSON.stringify({ configured: false }),
   }));
   await page.goto("/");
-  await page.getByRole("button", { name: "AI Coach", exact: true }).click();
+  await openAiCoach(page);
 
   await expect(page.locator("#ai-coach-workbench")).toBeVisible();
   await expect(page.locator(".ai-pattern strong")).toHaveText(["Steady downs", "Alternating pulse", "Island rhythm"]);
@@ -1118,7 +1118,7 @@ test("runs the Astra correction, cancelable retry, and before-after loop", async
   });
   await page.clock.install();
   await page.goto("/");
-  await page.getByRole("button", { name: "AI Coach", exact: true }).click();
+  await openAiCoach(page);
   await expect(page.locator("#ai-connection")).toContainText("API key configured");
   await page.getByRole("button", { name: "Start first take", exact: true }).click();
   await completeCalibration(page);

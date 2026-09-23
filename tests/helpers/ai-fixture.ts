@@ -43,8 +43,18 @@ export async function installTeachingFixture(page: Page) {
   });
   await page.clock.install();
   await page.goto("/");
-  await page.getByRole("button", { name: "AI Coach", exact: true }).click();
+  await openAiCoach(page);
   await expect(page.locator("#ai-connection")).toContainText("API key configured");
+}
+
+export async function openAiCoach(page: Page): Promise<void> {
+  if (!(await page.locator("#mode-ai-coach").isVisible())) {
+    const more = page.locator("#nav-tools");
+    if (await more.getAttribute("aria-expanded") === "false") await more.click();
+    await page.locator("#mobile-mode-ai-coach").click();
+    return;
+  }
+  await page.locator("#mode-ai-coach").click();
 }
 
 export async function completeCalibration(page: Page): Promise<void> {

@@ -99,6 +99,7 @@
 .course-input-choice > div:last-child { display: flex; padding: .3rem; border-radius: 15px; background: #e3d8c6; }
 .course-input-choice button { padding: .7rem 1rem; color: #756359; background: transparent; }
 .course-input-choice button.is-selected { color: #fffaf2; background: #6d564d; box-shadow: 0 3px 9px rgba(64,43,34,.18); }
+.course-input-choice .course-instrument-toggle { display: none; }
 
 .course-stage-rail { display: grid; grid-template-columns: repeat(6, 1fr); padding: .75rem clamp(1rem, 4vw, 3.5rem); border-bottom: 1px solid var(--course-rule); background: #ebe1d1; }
 .course-stage-rail button { display: flex; align-items: center; justify-content: center; gap: .45rem; color: #8c7b70; background: transparent; border-radius: 9px; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; }
@@ -201,6 +202,8 @@
   .course-input-choice { display: grid; padding: .8rem 1rem; }
   .course-input-choice > div:last-child { width: 100%; }
   .course-input-choice button { flex: 1; padding: .65rem .5rem; }
+  .course-input-choice .course-instrument-toggle { display: inline-flex; justify-content: center; align-items: center; flex-basis: 100%; color: var(--course-ink); background: #f5ede1; }
+  .course-input-choice > div:last-child { flex-wrap: wrap; }
   .course-stage-rail { display: flex; overflow-x: auto; justify-content: start; padding: .55rem; }
   .course-stage-rail button { flex: 0 0 auto; padding: .55rem .7rem; }
   .course-page { grid-template-columns: 1fr; min-height: 480px; }

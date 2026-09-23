@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { installTeachingFixture, completeCalibration, captureStrums } from './helpers/ai-fixture';
+import { installTeachingFixture, completeCalibration, captureStrums, openAiCoach } from './helpers/ai-fixture';
 
 async function selectMistake(page:Page) {
   await page.locator('#ai-start').click(); await completeCalibration(page);
@@ -59,7 +59,7 @@ test('retries explanation without losing the take and clears it on navigation',a
   await expect(page.locator('#ai-mistake-answer')).toContainText('quiet space');
   expect(calls).toBe(2);
   await page.getByRole('button',{name:'Play',exact:true}).click();
-  await page.getByRole('button',{name:'AI Coach',exact:true}).click();
+  await openAiCoach(page);
   await expect(page.locator('#ai-mistake-panel')).toBeHidden();
   await expect(page.locator('#ai-coach-workbench')).toHaveAttribute('data-phase','setup');
 });

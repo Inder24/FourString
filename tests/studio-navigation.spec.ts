@@ -2,6 +2,10 @@ import { expect, test } from "@playwright/test";
 
 test("Songs is a direct Learn destination without losing Practice drills", async ({ page, isMobile }) => {
   await page.goto("/");
+  await expect(page.locator("#nav-lessons")).toBeVisible();
+  await page.locator("#nav-lessons").click();
+  await expect(page.locator("#course-workbench")).toBeVisible();
+  await expect(page.locator("#nav-lessons")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#nav-songs")).toBeVisible();
   await page.locator("#nav-songs").click();
   await expect(page.locator("#lesson-workbench")).toBeVisible();
@@ -20,10 +24,13 @@ test("phone Tools opens its three destinations and closes after selection", asyn
   await page.goto("/");
   const tools = page.locator("#nav-tools");
   await expect(tools).toBeVisible();
+  await expect(tools).toContainText("More");
+  await expect(page.locator("#mode-ai-coach")).toBeHidden();
   await expect(tools).toHaveAttribute("aria-expanded", "false");
   await tools.click();
   await expect(tools).toHaveAttribute("aria-expanded", "true");
   await expect(page.locator("#rail-tools")).toBeVisible();
+  await expect(page.locator("#mobile-mode-ai-coach")).toBeVisible();
   await expect(page.getByRole("button", { name: "Clear frets" })).toBeVisible();
   await expect(page.getByRole("slider", { name: "Volume" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Mute sound" })).toBeVisible();
@@ -33,6 +40,30 @@ test("phone Tools opens its three destinations and closes after selection", asyn
   await expect(tools).toHaveAttribute("aria-pressed", "true");
   await expect(tools).toHaveAttribute("aria-expanded", "false");
   await expect(page.locator("#rail-tools")).toBeHidden();
+});
+
+test("phone navigation is Play, Lessons, Practice, Songs, More and lessons keep a compact instrument dock", async ({ page, isMobile }) => {
+  test.skip(!isMobile, "Phone navigation contract");
+  await page.goto("/");
+  const labels = await page.locator(".control-ribbon .mode-button:visible > span").allTextContents();
+  expect(labels.map((label) => label.trim())).toEqual(["PlayJump in and play", "LessonsBook One foundations", "PracticeBuild your skills", "SongsPlay real music", "More"]);
+  await page.locator("#nav-lessons").click();
+  await page.locator("#course-continue").click();
+  await expect(page.locator("#instrument-frame")).toBeInViewport();
+  await expect(page.locator("#instrument-frame")).toHaveAttribute("data-course-dock", "compact");
+  await page.locator("#course-instrument-toggle").click();
+  await expect(page.locator("#instrument-frame")).toHaveAttribute("data-course-dock", "expanded");
+  await expect(page.locator("#fretboard")).toBeVisible();
+});
+
+test("Lessons remains keyboard reachable and reduced motion removes its arrival animation", async ({ page, isMobile }) => {
+  test.skip(isMobile, "Run once on desktop");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await page.locator("#nav-lessons").focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#course-workbench")).toBeVisible();
+  await expect(page.locator("#course-home, .course-home")).toHaveCSS("animation-name", "none");
 });
 
 test("desktop gives the live instrument a canvas beside a fixed studio rail", async ({ page, isMobile }) => {

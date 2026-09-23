@@ -1,7 +1,8 @@
 /* Selected Modern Luthier Studio direction. This final layer owns presentation,
    while the original component selectors continue to own interaction geometry. */
 .rail-group { display: contents; }
-.rail-heading, .rail-description, .mobile-tools-button { display: none; }
+.rail-heading, .rail-description, .mobile-tools-button, .mobile-ai-coach-button { display: none; }
+.course-dock-close { display: none; }
 
 /* A warm, dark workbench wraps the existing playable instrument. The wood is
    texture only: frets, strings, pointer targets and sound remain live DOM. */
@@ -59,6 +60,21 @@ body::before {
   background: rgba(27, 22, 20, .42);
   box-shadow: inset 0 0 0 1px rgba(244, 225, 191, .16), 0 30px 85px rgba(8, 6, 5, .28);
 }
+
+body[data-app-view="lessons"] .course-workbench { padding-bottom: 300px; }
+body[data-app-view="lessons"] .instrument-frame[data-course-dock="full"] {
+  position: fixed;
+  z-index: 24;
+  right: 40px;
+  bottom: 18px;
+  left: 298px;
+  width: auto;
+  height: 270px;
+  margin: 0;
+  border-radius: 22px;
+  backdrop-filter: blur(15px);
+}
+body[data-app-view="lessons"] .instrument-frame[data-course-dock="full"] .instrument-layout { height: 100%; }
 .fret-labels { color: #d9c7b5; }
 .fretboard {
   background-color: #3f2922;
@@ -157,6 +173,9 @@ body::before {
     background: rgba(25, 21, 19, .91);
     box-shadow: inset -1px 0 rgba(242, 222, 193, .11), 18px 0 48px rgba(10, 8, 6, .16);
     backdrop-filter: blur(18px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(242, 216, 186, .28) transparent;
   }
   .mode-switch, .rail-group { display: flex; flex-direction: column; align-items: stretch; width: 100%; }
   .mode-switch { flex: 1; gap: 0; padding: 0; background: none; }
@@ -223,6 +242,12 @@ body::before {
   .mode-switch .mode-button.is-selected { color: #392621; background: #f2d8ba; }
   .utility-button, .icon-button, .help-menu summary { color: #eadac9; }
   .control-separator { background: rgba(240, 224, 198, .2); }
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="full"] {
+    right: 24px;
+    bottom: 18px;
+    left: 24px;
+    height: 250px;
+  }
 }
 
 @media (min-width: 1100px) and (max-height: 800px) {
@@ -282,6 +307,7 @@ body::before {
   }
   .mode-switch .mode-button svg { display: block; width: 17px; height: 17px; }
   .mode-switch .mode-button.is-selected { color: #33231f; background: #f2d8ba; }
+  .rail-group-learn #mode-ai-coach { display: none; }
   .control-ribbon > .control-separator, .control-ribbon > .utility-button,
   .control-ribbon > .volume-control, .control-ribbon > .icon-button,
   .control-ribbon > .help-menu { display: none; }
@@ -305,6 +331,67 @@ body::before {
   .performance-readout { width: 100%; margin-top: 16px; padding: 10px 13px; border-radius: 14px; }
   .performance-readout .input-hint { display: none; }
   .footer-note { display: flex; font-size: 7px; }
+
+  body[data-app-view="lessons"] .course-workbench { padding-bottom: 120px; }
+  body[data-app-view="lessons"] .performance-readout { display: none; }
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"],
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="expanded"] {
+    position: fixed;
+    z-index: 34;
+    right: 10px;
+    bottom: calc(78px + env(safe-area-inset-bottom));
+    left: 10px;
+    width: auto;
+    margin: 0;
+    padding: 6px;
+    border-radius: 18px;
+    background: rgba(34, 27, 24, .97);
+    box-shadow: inset 0 0 0 1px rgba(244,225,194,.18), 0 16px 35px rgba(8,5,4,.4);
+    backdrop-filter: blur(16px);
+  }
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] { height: 98px; }
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .instrument-layout { display: block; height: 100%; }
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .neck-region { display: none; }
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .body-module { width: 100%; height: 100%; padding: 0; }
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .strum-surface { min-height: 0; height: 100%; border-radius: 14px; }
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .strum-word { display: block; }
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="expanded"] { height: min(350px, calc(100vh - 170px)); }
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="expanded"] .instrument-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(150px, 1fr) 92px;
+    height: 100%;
+    gap: 5px;
+  }
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="expanded"] .neck-region,
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="expanded"] .body-module { min-width: 0; min-height: 0; }
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="expanded"] .neck-scroll { height: 100%; }
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="expanded"] .strum-surface { min-height: 0; height: 100%; }
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .audio-gate,
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="expanded"] .audio-gate { inset: 6px; padding: 4px; }
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .gate-card,
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="expanded"] .gate-card { display: flex; padding: 7px 9px; }
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .gate-card > div:nth-child(2),
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .real-uke-button { display: none; }
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .gate-actions { min-width: 0; margin: 0; }
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .enable-button { min-height: 42px; padding: 0 12px; }
+  .course-dock-close:not([hidden]) {
+    position: absolute;
+    z-index: 8;
+    top: 8px;
+    right: 8px;
+    display: inline-flex;
+    min-height: 36px;
+    padding: 0 10px;
+    align-items: center;
+    border: 0;
+    border-radius: 999px;
+    color: #3a2822;
+    background: #f2d8ba;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 760;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -332,6 +419,7 @@ body::before {
     box-shadow: inset 0 0 0 1px rgba(246, 224, 193, .22), 0 20px 36px rgba(5, 4, 3, .38);
   }
   .rail-group-tools[data-open="true"] .mode-button { justify-content: flex-start; width: 100%; }
+  .rail-group-tools[data-open="true"] .mobile-ai-coach-button { display: flex; }
   .rail-group-tools .control-separator { width: 100%; height: 1px; margin: 4px 0; background: rgba(245, 229, 205, .18); }
   .rail-group-tools .utility-button, .rail-group-tools .icon-button, .rail-group-tools .help-menu summary { min-height: 44px; color: #e9dacc; }
   .rail-group-tools .utility-button { justify-content: flex-start; }

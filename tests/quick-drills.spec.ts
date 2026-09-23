@@ -9,7 +9,12 @@ test("Quick drills belongs to Practice and preserves its selected destination", 
   await page.getByRole("button", { name: "Play", exact: true }).click();
   await page.getByRole("button", { name: "Practice", exact: true }).click();
   await expect(page.locator("#mode-coach")).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("button", { name: "AI Coach", exact: true })).toBeVisible();
+  if (await page.locator("#nav-tools").isVisible()) {
+    await page.locator("#nav-tools").click();
+    await expect(page.locator("#mobile-mode-ai-coach")).toBeVisible();
+  } else {
+    await expect(page.locator("#mode-ai-coach")).toBeVisible();
+  }
 });
 
 test("pulse displays independently graded gaps and a seven-gap summary", async ({ page }) => {

@@ -34,6 +34,8 @@ interface CourseControllerOptions {
   audio: AudioEngine;
   tuner: TunerEngine;
   ensureAudio: () => Promise<boolean>;
+  instrumentExpanded: () => boolean;
+  toggleInstrument: () => void;
 }
 
 interface InstrumentNoteDetail {
@@ -129,6 +131,11 @@ export class CourseController {
       localStorage.setItem(INPUT_KEY, this.input);
       if (this.input === "screen") this.stopMicrophone();
       this.resetActivityState();
+      this.render();
+      return;
+    }
+    if (target.id === "course-instrument-toggle") {
+      this.options.toggleInstrument();
       this.render();
       return;
     }
@@ -250,6 +257,7 @@ export class CourseController {
         <div role="group" aria-label="Course instrument source">
           <button id="course-input-screen" class="${this.input === "screen" ? "is-selected" : ""}" aria-pressed="${this.input === "screen"}" type="button">On-screen ukulele</button>
           <button id="course-input-real" class="${this.input === "real" ? "is-selected" : ""}" aria-pressed="${this.input === "real"}" type="button">My ukulele</button>
+          <button id="course-instrument-toggle" class="course-instrument-toggle" type="button">${this.options.instrumentExpanded() ? "Compact strings" : "Open fretboard"}</button>
         </div>
       </section>
       <nav class="course-stage-rail" aria-label="Lesson stages">${lesson.activities.map((candidate, index) => `<button data-course-stage="${candidate.stage}" class="${index === this.stageIndex ? "is-current" : index < this.stageIndex ? "is-past" : ""}" aria-current="${index === this.stageIndex ? "step" : "false"}" type="button"><span>${index + 1}</span>${stageLabel(candidate.stage)}</button>`).join("")}</nav>

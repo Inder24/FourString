@@ -178,6 +178,7 @@ let handLayout: HandLayout = storedPreference("four-strings-hand-layout") === "o
       ? "one"
       : "two";
 let focusMode = false;
+let courseInstrumentExpanded = false;
 
 const fretboard = byId<HTMLDivElement>("fretboard");
 const fretLabels = byId<HTMLDivElement>("fret-labels");
@@ -187,6 +188,7 @@ const bodyStringNames = byId<HTMLDivElement>("body-string-names");
 const positionMarkers = byId<HTMLDivElement>("position-markers");
 const strumSurface = byId<HTMLElement>("strum-surface");
 const instrumentFrame = byId<HTMLDivElement>("instrument-frame");
+const courseDockClose = byId<HTMLButtonElement>("course-dock-close");
 const audioGate = byId<HTMLDivElement>("audio-gate");
 const enableButton = byId<HTMLButtonElement>("enable-button");
 const gateTitle = byId<HTMLElement>("gate-title");
@@ -205,6 +207,7 @@ const navLessons = byId<HTMLButtonElement>("nav-lessons");
 const navPractice = byId<HTMLButtonElement>("nav-practice");
 const navSongs = byId<HTMLButtonElement>("nav-songs");
 const navTools = byId<HTMLButtonElement>("nav-tools");
+const mobileModeAiCoach = byId<HTMLButtonElement>("mobile-mode-ai-coach");
 const railTools = byId<HTMLElement>("rail-tools");
 const modeStrum = byId<HTMLButtonElement>("mode-strum");
 const modeExplore = byId<HTMLButtonElement>("mode-explore");
@@ -381,6 +384,8 @@ const course = new CourseController({
   audio,
   tuner,
   ensureAudio: () => initializeAudio({ focusInstrument: false }),
+  instrumentExpanded: () => courseInstrumentExpanded,
+  toggleInstrument: () => setCourseInstrumentExpanded(!courseInstrumentExpanded),
 });
 
 const adaptiveCoach = new AdaptiveCoachController({
@@ -519,11 +524,13 @@ function bindControls(): void {
   modeChordCheck.addEventListener('click', () => setView('chord-check'));
   modeCoach.addEventListener("click", () => setView("coach"));
   modeAiCoach.addEventListener("click", () => setView("ai-coach"));
+  mobileModeAiCoach.addEventListener("click", () => setView("ai-coach"));
   modePractice.addEventListener("click", () => setView("practice"));
   modeChapters.addEventListener("click", () => setView("chapters"));
   layoutOneHand.addEventListener("click", () => setHandLayout("one"));
   layoutTwoHands.addEventListener("click", () => setHandLayout("two"));
   focusModeButton.addEventListener("click", () => setFocusMode(!focusMode));
+  courseDockClose.addEventListener("click", () => setCourseInstrumentExpanded(false));
 
   patternTempoRange.addEventListener("input", () => {
     patternTempo = Number(patternTempoRange.value);
@@ -755,6 +762,7 @@ function bindControls(): void {
 
   document.addEventListener("keydown", handleKeyboard);
   window.addEventListener("blur", clearHeldPointers);
+  window.addEventListener("resize", syncCourseInstrumentDock);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") {
       clearHeldPointers();
@@ -1294,6 +1302,7 @@ function setView(view: AppView): void {
   }
   if (focusMode && view !== "strum" && view !== "explore") setFocusMode(false);
   currentView = view;
+  if (view !== "lessons") courseInstrumentExpanded = false;
   if (view === "strum" || view === "explore") lastPlayView = view;
   if (view === "practice" || view === "coach") lastPracticeView = view;
   document.body.dataset.appView = view;
@@ -1308,6 +1317,7 @@ function setView(view: AppView): void {
     [navPractice, view === "practice" || view === "coach"],
     [navSongs, view === "chapters"],
     [modeAiCoach, view === "ai-coach"],
+    [mobileModeAiCoach, view === "ai-coach"],
     [modeTuner, view === "tuner"],
     [modeTempo, view === 'tempo'],
     [modeChordCheck, view === 'chord-check'],
@@ -1316,7 +1326,7 @@ function setView(view: AppView): void {
     button.classList.toggle("is-selected", selected);
     button.setAttribute("aria-pressed", String(selected));
   });
-  const toolsView = view === "tuner" || view === "tempo" || view === "chord-check";
+  const toolsView = view === "tuner" || view === "tempo" || view === "chord-check" || view === "ai-coach";
   navTools.classList.toggle("is-selected", toolsView);
   navTools.setAttribute("aria-pressed", String(toolsView));
   const secondaryButtons: Array<[HTMLButtonElement, AppView]> = [
@@ -1394,6 +1404,7 @@ function setView(view: AppView): void {
       : "Hold the neck with one hand and play the body with the other.";
   instrumentFrame.dataset.mode = instrumentMode;
   instrumentFrame.dataset.view = view;
+  syncCourseInstrumentDock();
   patternBuilder.hidden = view !== "explore";
   tunerWorkbench.hidden = view !== "tuner";
   tempoWorkbench.hidden = view !== 'tempo';
@@ -1451,6 +1462,22 @@ function setFocusMode(enabled: boolean): void {
   focusModeButton.setAttribute("aria-label", enabled ? "Exit focus view" : "Enter focus view");
   focusModeButton.querySelector("span")!.textContent = enabled ? "Exit focus" : "Focus view";
   if (enabled) instrumentFrame.scrollIntoView({ block: "center" });
+}
+
+function setCourseInstrumentExpanded(expanded: boolean): void {
+  courseInstrumentExpanded = expanded;
+  syncCourseInstrumentDock();
+}
+
+function syncCourseInstrumentDock(): void {
+  const courseView = currentView === "lessons";
+  const phone = window.matchMedia("(max-width: 700px) and (orientation: portrait)").matches;
+  instrumentFrame.dataset.courseDock = courseView
+    ? phone
+      ? courseInstrumentExpanded ? "expanded" : "compact"
+      : "full"
+    : "off";
+  courseDockClose.hidden = !courseView || !phone || !courseInstrumentExpanded;
 }
 
 function handleFretPointerDown(event: PointerEvent): void {
