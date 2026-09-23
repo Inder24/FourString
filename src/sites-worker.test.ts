@@ -18,7 +18,7 @@ describe('Sites worker transport', () => {
     expect(response.headers.get('Cache-Control')).toContain('no-store');
     expect(await (await worker.fetch(request('/api/adaptive-coach/status'), { ASSETS: assets })).json()).toEqual({ configured: false });
   });
-  it.each(['/api/adaptive-coach', '/api/mistake-explanation'])('preserves validation and missing-key errors for %s', async (path) => {
+  it.each(['/api/adaptive-coach', '/api/mistake-explanation', '/api/lesson-coach'])('preserves validation and missing-key errors for %s', async (path) => {
     const provider = vi.fn();
     vi.stubGlobal('fetch', provider);
     expect((await worker.fetch(request(path), env)).status).toBe(405);

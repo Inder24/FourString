@@ -1,5 +1,6 @@
 import { createAdaptiveCoachHandler } from './adaptive-coach-api';
 import { createMistakeExplanationHandler } from './mistake-explanation-api';
+import { createLessonCoachHandler } from './lesson-coach-api';
 import { jsonResponse } from './http-transport';
 
 interface SitesEnvironment {
@@ -18,6 +19,7 @@ export default {
     const key = env.OPENAI_API_KEY ?? '';
     return await createAdaptiveCoachHandler(key)(request)
       ?? await createMistakeExplanationHandler(key)(request)
+      ?? await createLessonCoachHandler(key)(request)
       ?? jsonResponse(404, { error: 'API route not found.' });
   },
 };

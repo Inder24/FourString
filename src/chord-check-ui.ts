@@ -4,7 +4,7 @@ import { LESSON_CHORDS, chordMidiNotes } from './lesson';
 import { midiToNoteName, UKULELE_STRINGS } from './music';
 import { centsBetween, type PitchReading, TunerEngine } from './tuner';
 
-const DISPLAY_NAMES: Record<CheckableChord, string> = { C: 'C major', Am: 'A minor', F: 'F major', G: 'G major' };
+const DISPLAY_NAMES: Record<CheckableChord, string> = { C: 'C major', Am: 'A minor', F: 'F major', G: 'G major', G7: 'G dominant seventh' };
 
 export class ChordCheckPanel {
   private selected: CheckableChord = 'C';

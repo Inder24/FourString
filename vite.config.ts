@@ -2,6 +2,7 @@ import { loadEnv, type Plugin } from "vite";
 import { defineConfig } from "vitest/config";
 import { createAdaptiveCoachMiddleware } from "./server/adaptive-coach-api";
 import { createMistakeExplanationMiddleware } from "./server/mistake-explanation-api";
+import { createLessonCoachMiddleware } from "./server/lesson-coach-api";
 
 export default defineConfig(({ mode }) => {
   const environment = loadEnv(mode, ".", "");
@@ -10,10 +11,12 @@ export default defineConfig(({ mode }) => {
     configureServer(server) {
       server.middlewares.use(createAdaptiveCoachMiddleware(environment.OPENAI_API_KEY ?? ""));
       server.middlewares.use(createMistakeExplanationMiddleware(environment.OPENAI_API_KEY ?? ""));
+      server.middlewares.use(createLessonCoachMiddleware(environment.OPENAI_API_KEY ?? ""));
     },
     configurePreviewServer(server) {
       server.middlewares.use(createAdaptiveCoachMiddleware(environment.OPENAI_API_KEY ?? ""));
       server.middlewares.use(createMistakeExplanationMiddleware(environment.OPENAI_API_KEY ?? ""));
+      server.middlewares.use(createLessonCoachMiddleware(environment.OPENAI_API_KEY ?? ""));
     },
   });
 
