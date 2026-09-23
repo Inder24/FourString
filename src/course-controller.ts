@@ -490,7 +490,21 @@ export class CourseController {
       const response = await fetch("/api/lesson-coach", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lessonId: lesson.id, activityId: activity.id, activityKind: activity.kind, attempted: saved.attempted, secure: saved.secure, accuracy: saved.accuracy, evidence: saved.evidence }) });
       const payload = await response.json() as { decision?: { correction: string; evidence: string }; error?: string };
       const recap = this.options.root.querySelector<HTMLElement>(".course-recap");
-      if (recap) recap.insertAdjacentHTML("beforeend", `<div class="course-astra-card"><span>Powered by GPT-6 Astra</span><strong>${payload.decision?.correction ?? payload.error ?? "Coaching is unavailable."}</strong>${payload.decision ? `<p>${payload.decision.evidence}</p>` : ""}</div>`);
+      if (recap) {
+        const card = document.createElement("div");
+        card.className = "course-astra-card";
+        const badge = document.createElement("span");
+        badge.textContent = "Powered by GPT-6 Astra";
+        const correction = document.createElement("strong");
+        correction.textContent = payload.decision?.correction ?? payload.error ?? "Coaching is unavailable.";
+        card.append(badge, correction);
+        if (payload.decision) {
+          const evidence = document.createElement("p");
+          evidence.textContent = payload.decision.evidence;
+          card.append(evidence);
+        }
+        recap.append(card);
+      }
     } catch {
       if (button) { button.disabled = false; button.textContent = "Retry Astra coaching"; }
     }

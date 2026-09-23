@@ -68,3 +68,49 @@ test("leaving Lessons cleans up the reader and restores Play", async ({ page }) 
   await expect(page.locator("#instrument-frame")).toBeVisible();
   await expect(page.locator("body")).toHaveAttribute("data-app-view", "strum");
 });
+
+test("lesson coaching renders Astra text without treating it as markup", async ({ page }) => {
+  await page.route("**/api/lesson-coach", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        decision: {
+          correction: '<img src=x onerror="window.__lessonCoachInjected=true">Keep the pulse even.',
+          evidence: "Only 50% of attacks were on time.",
+        },
+      }),
+    });
+  });
+  await page.evaluate(() => {
+    localStorage.setItem("four-strings-course-foundations-v1", JSON.stringify({
+      schemaVersion: 1,
+      courseId: "foundations-v1",
+      lastLessonId: "find-the-pulse",
+      lessons: {
+        "find-the-pulse": {
+          attempts: 1,
+          completedAt: "2026-09-23T00:00:00.000Z",
+          secureAt: null,
+          bestResult: {
+            attempted: true,
+            secure: false,
+            accuracy: 0.5,
+            evidence: { onTimeRate: 0.5 },
+            retryHint: "Keep the pulse even.",
+          },
+        },
+      },
+    }));
+  });
+  await page.reload();
+  await page.locator("#nav-lessons").click();
+  await page.locator("[data-course-lesson='find-the-pulse']").click();
+  await page.locator("[data-course-stage='recap']").click();
+  await page.locator("#course-ask-astra").click();
+
+  const coaching = page.locator(".course-astra-card");
+  await expect(coaching).toContainText("<img src=x");
+  await expect(coaching.locator("img")).toHaveCount(0);
+  await expect(page.locator("body")).not.toHaveAttribute("data-lesson-coach-injected", "true");
+  await expect.poll(() => page.evaluate(() => Boolean((window as Window & { __lessonCoachInjected?: boolean }).__lessonCoachInjected))).toBe(false);
+});

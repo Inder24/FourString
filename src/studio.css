@@ -372,9 +372,13 @@ body[data-app-view="lessons"] .instrument-frame[data-course-dock="full"] .instru
   body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .gate-card,
   body[data-app-view="lessons"] .instrument-frame[data-course-dock="expanded"] .gate-card { display: flex; padding: 7px 9px; }
   body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .gate-card > div:nth-child(2),
-  body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .real-uke-button { display: none; }
-  body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .gate-actions { min-width: 0; margin: 0; }
-  body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .enable-button { min-height: 42px; padding: 0 12px; }
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="expanded"] .gate-card > div:nth-child(2),
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .real-uke-button,
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="expanded"] .real-uke-button { display: none; }
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .gate-actions,
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="expanded"] .gate-actions { min-width: 0; margin: 0; }
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .enable-button,
+  body[data-app-view="lessons"] .instrument-frame[data-course-dock="expanded"] .enable-button { min-height: 42px; padding: 0 12px; }
   .course-dock-close:not([hidden]) {
     position: absolute;
     z-index: 8;

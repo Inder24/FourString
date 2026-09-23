@@ -95,8 +95,12 @@ test("groups Play, Learn, and Tools with drills under Practice", async ({ page, 
   await expect(page.locator("#nav-play")).toBeVisible();
   await expect(page.locator("#nav-practice")).toBeVisible();
   await expect(page.locator("#nav-songs")).toBeVisible();
-  await expect(page.locator("#mode-ai-coach")).toBeVisible();
-  if (isMobile) await page.locator("#nav-tools").click();
+  if (isMobile) {
+    await page.locator("#nav-tools").click();
+    await expect(page.locator("#mobile-mode-ai-coach")).toBeVisible();
+  } else {
+    await expect(page.locator("#mode-ai-coach")).toBeVisible();
+  }
   await expect(page.locator("#mode-tuner")).toBeVisible();
   await expect(page.locator("#mode-tempo")).toBeVisible();
   await expect(page.locator("#mode-chord-check")).toBeVisible();

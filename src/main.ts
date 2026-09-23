@@ -160,6 +160,7 @@ let practiceAdjustment = "Tempo changes after three correct moves or two misses.
 let practiceInput: PracticeInput = storedPreference("four-strings-practice-input") === "real" ? "real" : "screen";
 const practicePitchConfirmation = new PracticePitchConfirmation();
 let practiceMicIgnoreUntil = 0;
+let practiceAcceptedNote: { label: string; until: number } | null = null;
 const practiceOnsets = new OnsetDetector(0.018, 220);
 let referenceSpeed = 0.75;
 let referencePlayback: ReferencePlayback | null = null;
@@ -2302,6 +2303,7 @@ function updatePracticeMicFeedback(
 function resetPracticePitchTracking(detail = "Play one clear note"): void {
   practicePitchConfirmation.reset();
   practiceMicIgnoreUntil = 0;
+  practiceAcceptedNote = null;
   updatePracticeMicFeedback("—", detail, 0, "waiting");
 }
 
@@ -2377,6 +2379,7 @@ function handlePracticeMicReading(reading: PitchReading | null, signal: SignalFr
     const target = TUNING_TARGETS[expected];
     const feedback = evaluateCoachPitch(reading, target, 50);
     if (feedback.grade === "correct") {
+      practiceAcceptedNote = null;
       const confirmation = practicePitchConfirmation.observe("match", signal.at);
       const pitchDetail = feedback.cents === null
         ? `${confirmation.matches} of ${confirmation.required} checks`
@@ -2389,6 +2392,7 @@ function handlePracticeMicReading(reading: PitchReading | null, signal: SignalFr
         const nextTarget = exerciseComplete ? null : TUNING_TARGETS[targets[practiceTargetIndex + 1]];
         practicePitchConfirmation.reset();
         practiceMicIgnoreUntil = signal.at + 280;
+        practiceAcceptedNote = { label: target.label, until: signal.at + 2_000 };
         recordPracticeAttempt(true, `Microphone check: open ${target.id} heard clearly.`);
         advancePracticeTarget(targets.length);
         practiceOnsets.reset();
@@ -2401,6 +2405,11 @@ function handlePracticeMicReading(reading: PitchReading | null, signal: SignalFr
       }
       return;
     }
+
+    if (practiceAcceptedNote && signal.at < practiceAcceptedNote.until && feedback.heardNote === practiceAcceptedNote.label) {
+      return;
+    }
+    if (practiceAcceptedNote && signal.at >= practiceAcceptedNote.until) practiceAcceptedNote = null;
 
     const confirmation = practicePitchConfirmation.observe(feedback.grade === "quiet" ? "quiet" : "mismatch", signal.at);
     if (feedback.grade === "wrong-note") {
