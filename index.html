@@ -56,6 +56,10 @@
             </div>
             <span class="rail-heading">Learn</span>
             <div class="rail-group rail-group-learn">
+              <button class="mode-button" id="nav-lessons" type="button" aria-pressed="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5v-16ZM20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5v-16Z"/></svg>
+                <span>Lessons<small class="rail-description" aria-hidden="true">Book One foundations</small></span>
+              </button>
               <button class="mode-button" id="nav-practice" type="button" aria-pressed="false">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2M9 3h6"/></svg>
                 <span>Practice<small class="rail-description" aria-hidden="true">Build your skills</small></span>
@@ -698,6 +702,10 @@
             </aside>
           </div>
           <p class="practice-status" id="practice-status" aria-live="polite">Start when your hands are ready. You can finish early when a stage is mastered.</p>
+        </section>
+
+        <section class="course-workbench" id="course-workbench" aria-label="Book One Foundations lessons" hidden>
+          <div id="course-root"></div>
         </section>
 
         <section class="lesson-workbench" id="lesson-workbench" aria-labelledby="lesson-song-title" hidden>

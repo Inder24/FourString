@@ -3,9 +3,11 @@ import "@fontsource-variable/fraunces/wght.css";
 import "./style.css";
 import "./lesson-trust.css";
 import "./studio.css";
+import "./course.css";
 
 import { AdaptiveCoachController } from "./adaptive-coach-controller";
 import { AudioEngine } from "./audio";
+import { CourseController } from "./course-controller";
 import { evaluateCoachPitch, OnsetDetector, NoteConfirmation, PulseDrill, type CoachPitchGrade } from "./coach";
 import { chordFretLabel, chordHint, chordNoteNames, gestureHint, stringHint } from "./guidance";
 import {
@@ -59,7 +61,7 @@ import {
 import { createSavedTake, MAX_TAKE_DURATION_MS, MAX_TAKE_EVENTS, parseSavedTake, type SavedTake, type TakeNoteEvent } from "./take";
 import { targetPitch, TUNING_TARGETS, TunerEngine, type PitchReading, type SignalFrame, type TunerStatus } from "./tuner";
 
-type AppView = PlayMode | "tuner" | "tempo" | "chord-check" | "coach" | "ai-coach" | "practice" | "chapters";
+type AppView = PlayMode | "lessons" | "tuner" | "tempo" | "chord-check" | "coach" | "ai-coach" | "practice" | "chapters";
 type CoachDrill = "strings" | "pulse";
 type HandLayout = "one" | "two";
 type PracticeInput = "screen" | "real";
@@ -199,6 +201,7 @@ const readoutLabel = byId<HTMLElement>("readout-label");
 const noteOrb = byId<HTMLElement>("note-orb");
 const ripple = byId<HTMLElement>("ripple");
 const navPlay = byId<HTMLButtonElement>("nav-play");
+const navLessons = byId<HTMLButtonElement>("nav-lessons");
 const navPractice = byId<HTMLButtonElement>("nav-practice");
 const navSongs = byId<HTMLButtonElement>("nav-songs");
 const navTools = byId<HTMLButtonElement>("nav-tools");
@@ -310,6 +313,8 @@ const practiceHearBar = byId<HTMLButtonElement>("practice-hear-bar");
 const practiceReferenceStatus = byId<HTMLElement>("practice-reference-status");
 const practiceLayerHint = byId<HTMLElement>("practice-layer-hint");
 const practiceLayerHintDetail = byId<HTMLElement>("practice-layer-hint-detail");
+const courseWorkbench = byId<HTMLElement>("course-workbench");
+const courseRoot = byId<HTMLElement>("course-root");
 const lessonWorkbench = byId<HTMLElement>("lesson-workbench");
 const songSearch = byId<HTMLInputElement>("song-search");
 const songResults = byId<HTMLElement>("song-results");
@@ -370,6 +375,13 @@ const lessonDirectionCheck = byId<HTMLInputElement>("lesson-direction-check");
 const lessonHeardStatus = byId<HTMLElement>("lesson-heard-status");
 const performanceReadout = byId<HTMLElement>("performance-readout");
 const realUkeButton = byId<HTMLButtonElement>("real-uke-button");
+
+const course = new CourseController({
+  root: courseRoot,
+  audio,
+  tuner,
+  ensureAudio: () => initializeAudio({ focusInstrument: false }),
+});
 
 const adaptiveCoach = new AdaptiveCoachController({
   root: aiCoachWorkbench,
@@ -491,6 +503,7 @@ function bindControls(): void {
     modeTuner.focus({ preventScroll: true });
   });
   navPlay.addEventListener("click", () => setView(lastPlayView));
+  navLessons.addEventListener("click", () => setView("lessons"));
   navPractice.addEventListener("click", () => setView(lastPracticeView));
   navSongs.addEventListener("click", () => setView("chapters"));
   navTools.addEventListener("click", () => setToolsMenu(navTools.getAttribute("aria-expanded") !== "true"));
@@ -748,6 +761,7 @@ function bindControls(): void {
       stopReferenceAudio();
       if (currentView === "coach") stopCoach();
       else if (currentView === "ai-coach") adaptiveCoach.leave();
+      else if (currentView === "lessons") course.leave();
       else stopTuner();
       stopLessonDemo();
       if (practiceActive && !practicePaused) pausePracticeSession();
@@ -758,6 +772,7 @@ function bindControls(): void {
     audio.dispose();
     tuner.stop();
     adaptiveCoach.dispose();
+    course.dispose();
     window.clearInterval(practiceTimer);
   });
 }
@@ -1270,6 +1285,7 @@ function setView(view: AppView): void {
   if (currentView === "tuner" && view !== "tuner") stopTuner();
   if (currentView === 'tempo' && view !== 'tempo') tempoPanel.leave();
   if (currentView === 'chord-check' && view !== 'chord-check') chordCheckPanel.leave();
+  if (currentView === "lessons" && view !== "lessons") course.leave();
   if (currentView === "chapters" && view !== "chapters" && lessonInput === "real") stopLessonMicrophone();
   if (currentView === "practice" && view !== "practice" && practiceActive && !practicePaused) pausePracticeSession();
   if (currentView === 'practice' && view !== 'practice') {
@@ -1288,6 +1304,7 @@ function setView(view: AppView): void {
   const practiceView = view === "practice" || view === "coach";
   const primaryButtons: Array<[HTMLButtonElement, boolean]> = [
     [navPlay, playView],
+    [navLessons, view === "lessons"],
     [navPractice, view === "practice" || view === "coach"],
     [navSongs, view === "chapters"],
     [modeAiCoach, view === "ai-coach"],
@@ -1359,6 +1376,11 @@ function setView(view: AppView): void {
       title: "Learn it one line at a time.",
       guidance: "Hear the example, play one part, then connect the full passage.",
     },
+    lessons: {
+      eyebrow: "Learn · Book One",
+      title: "Understand what you play.",
+      guidance: "See it, hear it, guess it, then make the idea real on four strings.",
+    },
   };
   viewEyebrow.textContent = viewCopy[view].eyebrow;
   instrumentTitle.textContent = viewCopy[view].title;
@@ -1379,6 +1401,7 @@ function setView(view: AppView): void {
   coachWorkbench.hidden = view !== "coach";
   aiCoachWorkbench.hidden = view !== "ai-coach";
   practiceWorkbench.hidden = view !== "practice";
+  courseWorkbench.hidden = view !== "lessons";
   lessonWorkbench.hidden = view !== "chapters";
   instrumentSourceChoice.hidden = view !== "practice" && view !== "coach";
   instrumentFrame.hidden = view === "tuner" || view === 'tempo' || view === 'chord-check' || view === "ai-coach" || (view === "coach" && practiceInput === "real");
@@ -1386,6 +1409,7 @@ function setView(view: AppView): void {
   clearButton.hidden = view === "tuner" || view === 'tempo' || view === 'chord-check' || view === "ai-coach" || (view === "coach" && practiceInput === "real");
   if (view !== "explore") patternArmed = false;
   if (view === "chapters") renderLesson();
+  if (view === "lessons") course.enter();
   if (view === "coach") renderCoach();
   if (view === "practice") renderPractice();
   if (view === "ai-coach") adaptiveCoach.enter();
@@ -1519,6 +1543,7 @@ function handleStrumPointerMove(event: PointerEvent): void {
   showShapeReadout("Last strum", direction === "down" ? "↓" : "↑", [...trace.sounded]);
   if (trace.sounded.size === UKULELE_STRINGS.length && !trace.lessonChecked) {
     trace.lessonChecked = true;
+    dispatchCourseStrum(direction);
     handleLessonGesture({ kind: "strum", direction, beat: 0 });
     handlePracticeGesture({ kind: "strum", direction }, performance.now());
     handleCoachScreenGesture({ kind: "strum", direction }, performance.now());
@@ -1616,6 +1641,7 @@ function handleKeyboard(event: KeyboardEvent): void {
 function playPosition(stringIndex: number, fret: number, velocity: number, record = true): void {
   const position = getFretPosition(stringIndex, fret);
   audio.pluckString(stringIndex, position.midi, velocity);
+  dispatchCourseNote(position);
   if (record) recordPatternStep(position);
   const cell = fretButtons.get(cellKey(stringIndex, fret));
   if (cell) {
@@ -1631,6 +1657,7 @@ function playString(stringIndex: number, velocity: number): void {
   const fret = state.getEffectiveFret(stringIndex);
   const position = getFretPosition(stringIndex, fret);
   audio.pluckString(stringIndex, position.midi, velocity);
+  dispatchCourseNote(position);
   captureLessonTakeNote(stringIndex, fret, velocity);
   showPluck(stringIndex, position.noteName, fret);
   handleLessonGesture({ kind: "pluck", stringIndex, beat: 0 });
@@ -1647,6 +1674,7 @@ function strumAll(direction: StrumDirection): void {
     window.setTimeout(() => showStringFeedback(stringIndex), order * 24);
   });
   showShapeReadout("Last strum", direction === "down" ? "↓" : "↑", indices);
+  dispatchCourseStrum(direction);
   handleLessonGesture({ kind: "strum", direction, beat: 0 });
   handlePracticeGesture({ kind: "strum", direction }, performance.now());
   handleCoachScreenGesture({ kind: "strum", direction }, performance.now());
@@ -1658,6 +1686,7 @@ function playChordTogether(velocity = 0.72): void {
   positions.forEach((position) => captureLessonTakeNote(position.stringIndex, position.fret, velocity));
   positions.forEach((position) => showStringFeedback(position.stringIndex));
   showShapeReadout("Last chord", "4", positions.map((position) => position.stringIndex));
+  dispatchCourseStrum("down");
   handleLessonGesture({ kind: "strum", direction: "down", beat: 0 });
   handlePracticeGesture({ kind: "strum", direction: "down" }, performance.now());
   handleCoachScreenGesture({ kind: "strum", direction: "down" }, performance.now());
@@ -1671,6 +1700,24 @@ function playSweepStrings(indices: readonly number[], velocity: number): void {
     captureLessonTakeNote(stringIndex, fret, velocity, order * 12);
     window.setTimeout(() => showStringFeedback(stringIndex), order * 12);
   });
+}
+
+function dispatchCourseNote(position: FretPosition): void {
+  window.dispatchEvent(new CustomEvent("four-strings:note", {
+    detail: { midi: position.midi, stringIndex: position.stringIndex, fret: position.fret },
+  }));
+}
+
+function dispatchCourseStrum(direction: StrumDirection): void {
+  const positions = getCurrentShape();
+  window.dispatchEvent(new CustomEvent("four-strings:strum", {
+    detail: {
+      direction,
+      frets: positions.map((position) => position.fret),
+      midis: positions.map((position) => position.midi),
+      at: performance.now(),
+    },
+  }));
 }
 
 function getCurrentShape(): FretPosition[] {
@@ -3816,7 +3863,7 @@ function physicalStringNumber(stringIndex: number): number {
 }
 
 function isFormControl(target: EventTarget | null): boolean {
-  return target instanceof Element && Boolean(target.closest("input, select, summary, .control-ribbon button, .view-subnav button, .instrument-source-choice button, .pattern-builder button, .audio-gate, .lesson-workbench button, .tuner-workbench button, .tempo-workbench button, .chord-check-workbench button, .coach-workbench button, .ai-coach-workbench button, .practice-workbench button"));
+  return target instanceof Element && Boolean(target.closest("input, select, summary, .control-ribbon button, .view-subnav button, .instrument-source-choice button, .pattern-builder button, .audio-gate, .lesson-workbench button, .course-workbench button, .tuner-workbench button, .tempo-workbench button, .chord-check-workbench button, .coach-workbench button, .ai-coach-workbench button, .practice-workbench button"));
 }
 
 function tryCapturePointer(element: Element, pointerId: number): void {
