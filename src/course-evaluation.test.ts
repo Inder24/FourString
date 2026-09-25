@@ -6,6 +6,7 @@ import {
   evaluateCourseEarChoice,
   evaluateCourseNoteSequence,
   evaluateCourseRhythm,
+  evaluateCourseRhythmTiming,
 } from "./course-evaluation";
 
 describe("course evaluations", () => {
@@ -32,6 +33,12 @@ describe("course evaluations", () => {
     expect(evaluateCourseRhythm({ expectedCount: 8, onTime: 6, missed: 1, extra: 1 })).toMatchObject({ secure: true, accuracy: 0.75 });
     expect(evaluateCourseRhythm({ expectedCount: 8, onTime: 6, missed: 2, extra: 0 })).toMatchObject({ secure: false });
     expect(evaluateCourseRhythm({ expectedCount: 8, onTime: 5, missed: 1, extra: 0 }).evidence.directionMeasured).toBe(false);
+  });
+
+  it("grades quarter-note gaps at the full beat duration", () => {
+    const strokes = [0, 2, 4, 6].map((slot) => ({ slot, sounded: true }));
+    expect(evaluateCourseRhythmTiming(strokes, 60, [100, 1100, 2100, 3100])).toMatchObject({ secure: true, accuracy: 1 });
+    expect(evaluateCourseRhythmTiming(strokes, 60, [100, 600, 1100, 1600])).toMatchObject({ secure: false, accuracy: 0.25 });
   });
 
   it("grades accents relative to the unaccented strokes", () => {

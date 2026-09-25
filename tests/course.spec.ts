@@ -19,6 +19,61 @@ test("Book One exposes all 24 lessons and Continue opens the first unfinished le
   await expect(page.locator("#course-reader-title")).toHaveText("Your ukulele and you");
   await expect(page.locator("[data-course-stage]")).toHaveCount(6);
   await expect(page.locator("[data-course-stage='see']")).toHaveAttribute("aria-current", "step");
+  await expect(page.locator(".course-ukulele-map img")).toHaveAttribute("src", "/course/ukulele-parts-v1.png");
+  await expect(page.locator(".course-concept-visual > span")).toHaveCount(0);
+  await expect(page.locator("#instrument-frame")).toHaveAttribute("data-course-dock", "compact");
+});
+
+test("lesson one teaches parts interactively and uses plain-language stages", async ({ page }) => {
+  await page.locator("[data-course-lesson='your-ukulele']").click();
+  await expect(page.locator("[data-course-stage]")).toHaveText(["1Learn", "2Listen", "3Find", "4Try", "5Check", "6Finish"]);
+  await page.locator("[data-course-part='sound-hole']").click();
+  await expect(page.locator("#course-part-detail")).toContainText("Sound hole");
+
+  await page.locator("[data-course-stage='guess']").click();
+  await expect(page.getByRole("heading", { name: "Which part lets the ukulele body project the sound?" })).toBeVisible();
+  await page.getByRole("button", { name: "Sound hole" }).click();
+  await expect(page.locator("#course-evaluation")).toContainText("Correct");
+  await expect(page.locator("#course-evaluation")).not.toContainText("Secure");
+});
+
+test("rhythm lessons provide an explicit count-in and live attack progress", async ({ page }) => {
+  await page.locator("[data-course-lesson='find-the-pulse']").click();
+  await page.locator("[data-course-stage='play']").click();
+  await expect(page.getByRole("button", { name: "Start 4-beat count-in" })).toBeVisible();
+  await expect(page.locator("#course-attempt-guidance")).toContainText("Strum once on each bright pulse");
+  await expect(page.locator(".course-rhythm-lane [data-slot]")).toHaveCount(4);
+});
+
+test("a single stage click changes both the selected step and activity", async ({ page }) => {
+  await page.locator("[data-course-lesson='your-ukulele']").click();
+  await page.locator("[data-course-stage='play']").click();
+  await expect(page.locator("[data-course-stage='play']")).toHaveAttribute("aria-current", "step");
+  await expect(page.getByRole("heading", { name: "Now you try" })).toBeVisible();
+  await expect(page.locator("#course-activity")).toContainText("No microphone needed");
+});
+
+test("real-ukulele chord lessons explain their four-string acceptance flow", async ({ page }) => {
+  await page.locator("[data-course-lesson='first-chord-family']").click();
+  await page.locator("[data-course-stage='play']").click();
+  await page.locator("#course-input-real").click();
+  await expect(page.locator("#course-attempt-guidance")).toContainText("Hold C, then pick string 4");
+  await expect(page.locator(".course-honesty-note")).toContainText("pick strings 4 → 3 → 2 → 1");
+  await expect(page.locator(".course-now-try")).toContainText("0 of 4 strings matched");
+});
+
+test("all 24 lessons render every activity without generic or missing content", async ({ page }) => {
+  const lessonIds = await page.locator("[data-course-lesson]").evaluateAll((buttons) => buttons.map((button) => (button as HTMLElement).dataset.courseLesson ?? ""));
+  for (const lessonId of lessonIds) {
+    await page.locator(`[data-course-lesson='${lessonId}']`).click();
+    for (const stage of ["see", "hear", "guess", "play", "check", "recap"]) {
+      await page.locator(`[data-course-stage='${stage}']`).click();
+      await expect(page.locator("#course-activity h3")).not.toHaveText("");
+      await expect(page.locator("#course-activity")).not.toContainText("undefined");
+      if (stage === "guess") await expect(page.locator("#course-activity h3")).not.toHaveText("What did you hear?");
+    }
+    await page.locator("#course-back-home").click();
+  }
 });
 
 test("a self-check lesson becomes Completed and Secure, persists, and can be reset", async ({ page }) => {
@@ -53,7 +108,7 @@ test("input mode is explicit and using the instrument before an ear answer keeps
 
   await page.locator("#course-next").click();
   await page.locator("#course-next").click();
-  await expect(page.locator("#course-activity")).toContainText("What did you hear?");
+  await expect(page.locator("#course-activity")).toContainText("Where did the phrase finally settle?");
   await page.evaluate(() => window.dispatchEvent(new CustomEvent("four-strings:note", { detail: { midi: 60, stringIndex: 1, fret: 0 } })));
   await expect(page.locator("#course-ear-warning")).toBeVisible();
   await page.getByRole("button", { name: "Home" }).click();

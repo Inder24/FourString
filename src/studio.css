@@ -61,7 +61,10 @@ body::before {
   box-shadow: inset 0 0 0 1px rgba(244, 225, 191, .16), 0 30px 85px rgba(8, 6, 5, .28);
 }
 
-body[data-app-view="lessons"] .course-workbench { padding-bottom: 300px; }
+body[data-app-view="lessons"] .course-workbench { padding-bottom: 125px; }
+body[data-app-view="lessons"]:has(.instrument-frame[data-course-dock="expanded"]) .course-workbench { padding-bottom: 300px; }
+body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"],
+body[data-app-view="lessons"] .instrument-frame[data-course-dock="expanded"],
 body[data-app-view="lessons"] .instrument-frame[data-course-dock="full"] {
   position: fixed;
   z-index: 24;
@@ -69,11 +72,26 @@ body[data-app-view="lessons"] .instrument-frame[data-course-dock="full"] {
   bottom: 18px;
   left: 298px;
   width: auto;
-  height: 270px;
   margin: 0;
   border-radius: 22px;
   backdrop-filter: blur(15px);
 }
+body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] { height: 96px; padding: 8px; }
+body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .instrument-layout { display: block; height: 100%; }
+body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .neck-region { display: none; }
+body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .body-module { width: 100%; height: 100%; padding: 0; }
+body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .strum-surface { min-height: 0; height: 100%; border-radius: 14px; }
+body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .performance-readout { display: none; }
+body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .audio-gate { inset: 5px; padding: 3px; }
+body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .gate-card { display: flex; align-items: center; padding: 6px 9px; }
+body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .gate-card > div:nth-child(2),
+body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .gate-pick,
+body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .real-uke-button { display: none; }
+body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .gate-actions { min-width: 0; margin: 0; }
+body[data-app-view="lessons"] .instrument-frame[data-course-dock="compact"] .enable-button { min-height: 42px; padding: 0 12px; }
+body[data-app-view="lessons"] .instrument-frame[data-course-dock="expanded"],
+body[data-app-view="lessons"] .instrument-frame[data-course-dock="full"] { height: 270px; }
+body[data-app-view="lessons"] .instrument-frame[data-course-dock="expanded"] .instrument-layout,
 body[data-app-view="lessons"] .instrument-frame[data-course-dock="full"] .instrument-layout { height: 100%; }
 .fret-labels { color: #d9c7b5; }
 .fretboard {

@@ -1474,9 +1474,7 @@ function syncCourseInstrumentDock(): void {
   const courseView = currentView === "lessons";
   const phone = window.matchMedia("(max-width: 700px) and (orientation: portrait)").matches;
   instrumentFrame.dataset.courseDock = courseView
-    ? phone
-      ? courseInstrumentExpanded ? "expanded" : "compact"
-      : "full"
+    ? courseInstrumentExpanded ? "expanded" : "compact"
     : "off";
   courseDockClose.hidden = !courseView || !phone || !courseInstrumentExpanded;
 }

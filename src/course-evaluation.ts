@@ -14,6 +14,34 @@ export interface CourseCompositeResult {
   performance: boolean;
 }
 
+export interface CourseRhythmStroke {
+  slot: number;
+  sounded: boolean;
+}
+
+export function evaluateCourseRhythmTiming(
+  strokes: readonly CourseRhythmStroke[],
+  bpm: number,
+  attackTimes: readonly number[],
+): LessonEvaluation {
+  const sounded = strokes.filter((stroke) => stroke.sounded);
+  const expected = sounded.length;
+  if (!attackTimes.length) return evaluateCourseRhythm({ expectedCount: expected, onTime: 0, missed: expected, extra: 0 });
+  const slotMs = 60_000 / bpm / 2;
+  let onTime = 1;
+  for (let index = 1; index < Math.min(expected, attackTimes.length); index += 1) {
+    const actualGap = attackTimes[index] - attackTimes[index - 1];
+    const expectedGap = (sounded[index].slot - sounded[index - 1].slot) * slotMs;
+    if (Math.abs(actualGap - expectedGap) <= Math.max(90, expectedGap * 0.22)) onTime += 1;
+  }
+  return evaluateCourseRhythm({
+    expectedCount: expected,
+    onTime,
+    missed: Math.max(0, expected - attackTimes.length),
+    extra: Math.max(0, attackTimes.length - expected),
+  });
+}
+
 export function evaluateCourseEarChoice(
   expected: string,
   selected: string,

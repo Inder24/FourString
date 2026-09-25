@@ -15,7 +15,7 @@ import {
   evaluateCourseComposite,
   evaluateCourseEarChoice,
   evaluateCourseNoteSequence,
-  evaluateCourseRhythm,
+  evaluateCourseRhythmTiming,
 } from "./course-evaluation";
 import {
   loadCourseProgress,
@@ -27,6 +27,8 @@ import {
   type LessonEvaluation,
 } from "./course-progress";
 import { chordMidiNotes, LESSON_CHORDS } from "./lesson";
+import { OnsetDetector } from "./coach";
+import { RealMelodyConfirmation } from "./song-input";
 import type { TunerEngine, TunerStatus } from "./tuner";
 
 interface CourseControllerOptions {
@@ -69,6 +71,13 @@ export class CourseController {
   private stableMidi: number | null = null;
   private stableFrames = 0;
   private lastAcceptedPitchAt = 0;
+  private selectedPart = "";
+  private selectedAnswer = "";
+  private rhythmPhase: "idle" | "count-in" | "recording" | "complete" = "idle";
+  private countInBeat = 0;
+  private activeRhythmSlot = -1;
+  private readonly onsetDetector = new OnsetDetector(0.018, 150);
+  private readonly melodyConfirmation = new RealMelodyConfirmation(3, 180);
 
   private readonly noteListener = (event: Event) => this.onInstrumentNote((event as CustomEvent<InstrumentNoteDetail>).detail);
   private readonly strumListener = (event: Event) => this.onInstrumentStrum((event as CustomEvent<InstrumentStrumDetail>).detail);
@@ -156,6 +165,11 @@ export class CourseController {
       void this.playReference(target.id.endsWith("slower") ? 0.65 : 1);
       return;
     }
+    const part = target.closest<HTMLButtonElement>("[data-course-part]");
+    if (part?.dataset.coursePart) {
+      this.selectInstrumentPart(part.dataset.coursePart);
+      return;
+    }
     const answer = target.closest<HTMLButtonElement>("[data-course-answer]");
     if (answer?.dataset.courseAnswer !== undefined) {
       this.answerEarChoice(answer.dataset.courseAnswer);
@@ -163,6 +177,17 @@ export class CourseController {
     }
     if (target.id === "course-submit") {
       this.submitActivity();
+      return;
+    }
+    if (target.id === "course-start-take") {
+      void this.startRhythmAttempt();
+      return;
+    }
+    if (target.id === "course-stop-take") {
+      this.stopReference();
+      this.stopMicrophone();
+      this.rhythmPhase = this.strumTimes.length ? "complete" : "idle";
+      this.renderCurrentStage();
       return;
     }
     if (target.id === "course-retry") {
@@ -193,7 +218,7 @@ export class CourseController {
     this.stopMicrophone();
     this.stageIndex = index;
     this.resetActivityState();
-    this.render();
+    this.renderCurrentStage(true);
   }
 
   private resetActivityState(): void {
@@ -204,12 +229,50 @@ export class CourseController {
     this.activityEvaluation = null;
     this.stableMidi = null;
     this.stableFrames = 0;
+    this.selectedPart = "";
+    this.selectedAnswer = "";
+    this.rhythmPhase = "idle";
+    this.countInBeat = 0;
+    this.activeRhythmSlot = -1;
+    this.onsetDetector.reset();
+    this.melodyConfirmation.reset();
   }
 
   private render(): void {
     if (!this.active) return;
     this.options.root.innerHTML = this.lessonId ? this.readerMarkup(courseLesson(this.lessonId)) : this.homeMarkup();
     if (this.lessonId) this.renderActivityActions();
+  }
+
+  private renderCurrentStage(moveFocus = false): void {
+    if (!this.active || !this.lessonId) return;
+    const lesson = courseLesson(this.lessonId);
+    const reader = this.options.root.querySelector<HTMLElement>("#course-reader");
+    const activityRoot = this.options.root.querySelector<HTMLElement>("#course-activity");
+    if (!reader || !activityRoot) {
+      this.render();
+      return;
+    }
+    activityRoot.innerHTML = this.activityMarkup(lesson, lesson.activities[this.stageIndex]);
+    const stageButtons = [...reader.querySelectorAll<HTMLButtonElement>("[data-course-stage]")];
+    stageButtons.forEach((button, index) => {
+      button.classList.toggle("is-current", index === this.stageIndex);
+      button.classList.toggle("is-past", index < this.stageIndex);
+      button.setAttribute("aria-current", index === this.stageIndex ? "step" : "false");
+    });
+    const previous = reader.querySelector<HTMLButtonElement>("#course-previous");
+    const next = reader.querySelector<HTMLButtonElement>("#course-next");
+    const page = reader.querySelector<HTMLElement>(".course-reader-footer span");
+    if (previous) previous.disabled = this.stageIndex === 0;
+    if (next) {
+      next.disabled = this.stageIndex === COURSE_STAGES.length - 1;
+      next.textContent = this.stageIndex === 4 ? "See summary" : "Next";
+    }
+    if (page) page.textContent = `Step ${this.stageIndex + 1} of ${COURSE_STAGES.length}`;
+    const inputNote = reader.querySelector<HTMLElement>("#course-input-note");
+    if (inputNote) inputNote.textContent = this.inputDescription(lesson.activities[this.stageIndex]);
+    this.renderActivityActions();
+    if (moveFocus) activityRoot.querySelector<HTMLElement>("h3")?.focus({ preventScroll: true });
   }
 
   private homeMarkup(): string {
@@ -253,7 +316,7 @@ export class CourseController {
         <div class="course-reader-status">${saved?.secureAt ? "Secure ✓" : saved?.completedAt ? "Completed" : "In progress"}</div>
       </header>
       <section class="course-input-choice" aria-label="Choose how to play">
-        <div><span>Practise with</span><p id="course-input-note">${this.input === "real" ? "Your microphone listens locally for notes and attacks; uncertain chords offer a string-by-string check." : "The playable ukulele below gives exact string, fret, chord, and rhythm events."}</p></div>
+        <div><span>Practise with</span><p id="course-input-note">${this.inputDescription(activity)}</p></div>
         <div role="group" aria-label="Course instrument source">
           <button id="course-input-screen" class="${this.input === "screen" ? "is-selected" : ""}" aria-pressed="${this.input === "screen"}" type="button">On-screen ukulele</button>
           <button id="course-input-real" class="${this.input === "real" ? "is-selected" : ""}" aria-pressed="${this.input === "real"}" type="button">My ukulele</button>
@@ -266,8 +329,17 @@ export class CourseController {
         <section class="course-activity" id="course-activity">${this.activityMarkup(lesson, activity)}</section>
       </div>
       <footer class="course-reader-footer"><button id="course-previous" type="button" ${this.stageIndex === 0 ? "disabled" : ""}>Previous</button>
-      <span>Page ${this.stageIndex + 1} of 6</span><button class="course-primary" id="course-next" type="button" ${this.stageIndex === 5 ? "disabled" : ""}>${this.stageIndex === 4 ? "See recap" : "Next"}</button></footer>
+      <span>Step ${this.stageIndex + 1} of 6</span><button class="course-primary" id="course-next" type="button" ${this.stageIndex === 5 ? "disabled" : ""}>${this.stageIndex === 4 ? "See summary" : "Next"}</button></footer>
     </article>`;
+  }
+
+  private inputDescription(activity: CourseActivity): string {
+    if (activity.kind === "self-check") return "No microphone is needed here—use the checklist to confirm a relaxed hold.";
+    if (activity.kind === "ear-choice") return "Listen and answer first. The playable instrument remains available after your choice.";
+    if (this.input === "real") return activity.kind === "chord" || activity.kind === "performance"
+      ? "For reliable chord feedback, the lesson checks each string locally before accepting the shape."
+      : "Your microphone listens locally for notes and attacks. Audio never leaves this device.";
+    return "The on-screen ukulele gives exact string, fret, chord, and rhythm events.";
   }
 
   private activityMarkup(lesson: CourseLesson, activity: CourseActivity): string {
@@ -275,14 +347,14 @@ export class CourseController {
     const controls = activity.stage === "hear"
       ? `<div class="course-hear-actions"><button id="course-hear" class="course-primary" type="button">▶ Hear it</button><button id="course-hear-slower" type="button">Again slower</button></div>`
       : activity.kind === "ear-choice"
-        ? `<div class="course-answer-grid">${activity.choices.map((choice) => `<button data-course-answer="${choice}" type="button">${choice}</button>`).join("")}</div>
+        ? `<div class="course-guess-toolbar">${lesson.id === "your-ukulele" ? "" : `<button id="course-hear" type="button">▶ Hear example again</button>`}<span>${lesson.id === "your-ukulele" ? "Use the map above, then choose the matching part." : "One listen, then trust your ear."}</span></div><div class="course-answer-grid">${activity.choices.map((choice) => `<button data-course-answer="${choice}" data-state="${this.selectedAnswer === choice ? this.activityEvaluation?.accuracy === 1 ? "correct" : "incorrect" : "idle"}" aria-pressed="${this.selectedAnswer === choice}" type="button">${choice}</button>`).join("")}</div>
           <p class="course-ear-warning" id="course-ear-warning" ${this.instrumentRevealed ? "" : "hidden"}>The playable instrument may have revealed the answer. You can continue, but retry before using the instrument for this answer to count toward Secure.</p>`
         : activity.stage === "play" || activity.stage === "check"
           ? this.playControls(activity)
           : activity.stage === "recap"
             ? this.recapMarkup(lesson)
             : "";
-    return `<div class="course-activity-heading"><span>${stageLabel(activity.stage)} · ${activity.kind.replace("-", " ")}</span><h3>${activity.title}</h3><p>${activity.instruction}</p></div>${visual}${controls}<div id="course-evaluation" class="course-evaluation" aria-live="polite">${this.evaluationMarkup()}</div>`;
+    return `<div class="course-activity-heading"><span>${stageLabel(activity.stage)} · ${activity.kind.replace("-", " ")}</span><h3 tabindex="-1">${activity.title}</h3><p>${activity.instruction}</p></div>${visual}${controls}<div id="course-evaluation" class="course-evaluation" aria-live="polite">${this.evaluationMarkup(activity)}</div>`;
   }
 
   private visualMarkup(activity: CourseActivity, lesson: CourseLesson): string {
@@ -290,8 +362,22 @@ export class CourseController {
     if (activity.kind === "note-sequence") return `<div class="course-note-path">${activity.notes.map((note, index) => `<span class="${index < this.heardMidi.length ? "is-heard" : index === this.heardMidi.length ? "is-next" : ""}"><small>${note.sargam ?? stringNumber(note.stringIndex)}</small><strong>${note.sargam ?? note.western.replace(/\d$/, "")}</strong><i>${note.western}</i><em>${stringNumber(note.stringIndex)},${note.fret}</em></span>`).join("")}</div>`;
     if (activity.kind === "rhythm" || activity.kind === "performance") return this.rhythmVisual(activity);
     if (activity.kind === "chord") return `<div class="course-chord-path">${activity.chords.map((chord, index) => `<span class="${index < this.heardChords.length ? "is-heard" : index === this.heardChords.length ? "is-next" : ""}"><strong>${chord}</strong><small>${LESSON_CHORDS[chord].frets.join(" · ")}</small><i>${chordMidiNotes(chord).map(noteName).join(" · ")}</i></span>`).join("<b>→</b>")}</div>`;
-    if (activity.kind === "self-check") return `<div class="course-posture-figure"><div class="course-uke-silhouette" aria-hidden="true"><i></i><i></i><i></i><i></i></div><p>Let the instrument rest against you. The fretting hand guides; it does not carry all the weight.</p></div>`;
+    if (activity.kind === "self-check") return `<div class="course-posture-figure"><img src="/course/ukulele-parts-v1.png" alt="Ukulele resting horizontally, with the neck slightly raised" width="620" height="310"><div><strong>Comfort before speed</strong><p>Let the body rest against you. The fretting hand guides the neck; it does not carry all the weight.</p><small>No camera or microphone is used for this posture check.</small></div></div>`;
     if (activity.kind === "compose") return `<div class="course-compose-lane">${Array.from({ length: activity.noteCount }, (_, index) => `<span class="${index < this.heardMidi.length ? "is-filled" : ""}">${index < this.heardMidi.length ? noteName(this.heardMidi[index]) : index + 1}</span>`).join("")}</div>`;
+    if (activity.kind === "ear-choice") {
+      return lesson.id === "your-ukulele"
+        ? this.instrumentMapMarkup(false)
+        : `<div class="course-listening-card" aria-label="Listening challenge"><span aria-hidden="true">♪</span><div><strong>Listen from memory</strong><p>Replay the example only if you need it, then choose the closest answer below.</p></div><div class="course-wave-bars" aria-hidden="true">${Array.from({ length: 13 }, (_, index) => `<i style="--bar:${(index * 7) % 9 + 2}"></i>`).join("")}</div></div>`;
+    }
+    if (activity.kind === "explain" && activity.visual === "ukulele") return this.instrumentMapMarkup(true);
+    if (activity.kind === "explain" && activity.visual === "beat-grid") return `<div class="course-beat-concept"><div><strong>1</strong><span>beat</span></div><i></i><div><strong>2</strong><span>beat</span></div><i></i><div><strong>3</strong><span>beat</span></div><i></i><div><strong>4</strong><span>beat</span></div></div>`;
+    if (activity.kind === "explain" && activity.visual === "chord-stack") return `<div class="course-stack-visual"><span><small>Pa</small><strong>G</strong></span><span><small>Ga</small><strong>E</strong></span><span><small>Sa</small><strong>C</strong></span><p>Separate notes become one colour when they ring together.</p></div>`;
+    if (activity.kind === "explain" && activity.visual === "progression") {
+      const play = lesson.activities.find((candidate) => candidate.stage === "play");
+      const chords = play && (play.kind === "chord" || play.kind === "performance") ? play.chords : [];
+      return `<div class="course-progression-visual">${chords.map((chord, index) => `<span><small>${index + 1}</small><strong>${chord}</strong></span>`).join("<b>→</b>") || `<blockquote>${lesson.concept}</blockquote>`}</div>`;
+    }
+    if (activity.kind === "explain" && activity.visual === "waveform") return `<div class="course-wave-visual" aria-label="Sound changing over time">${Array.from({ length: 28 }, (_, index) => `<i style="--wave:${Math.round(18 + Math.abs(Math.sin(index * 1.7)) * 65)}%"></i>`).join("")}</div>`;
     const hearActivity = lesson.activities.find((candidate) => candidate.stage === "hear");
     const notes: readonly number[] = reference.length
       ? reference
@@ -301,23 +387,66 @@ export class CourseController {
     return `<div class="course-concept-visual" data-visual="${activity.kind === "explain" ? activity.visual : "waveform"}"><div class="course-staff-lines" aria-hidden="true"></div>${notes.map((midi, index) => `<span style="--course-step:${index};--course-pitch:${Math.max(0, Math.min(12, midi - 60))}"><strong>${sargamName(midi)}</strong><small>${noteName(midi)}</small></span>`).join("") || `<blockquote>${lesson.concept}</blockquote>`}</div>`;
   }
 
+  private instrumentMapMarkup(interactive: boolean): string {
+    const parts = [
+      ["headstock", "Headstock", "Holds the tuning pegs."],
+      ["neck", "Neck", "Supports the fretboard and fretting hand."],
+      ["strings", "Strings", "Four vibrating voices: G, C, E, A."],
+      ["sound-hole", "Sound hole", "Lets the vibrating body project sound."],
+      ["bridge", "Bridge", "Anchors the strings to the body."],
+      ["body", "Body", "Amplifies the strings naturally."],
+    ] as const;
+    const selected = parts.find(([id]) => id === this.selectedPart);
+    return `<div class="course-ukulele-map ${interactive ? "is-interactive" : "is-question"}"><img src="/course/ukulele-parts-v1.png" alt="Ukulele showing the headstock, neck, four strings, sound hole, bridge, and body" width="1200" height="600">${interactive ? parts.map(([id, label]) => `<button data-course-part="${id}" class="part-${id} ${this.selectedPart === id ? "is-selected" : ""}" aria-pressed="${this.selectedPart === id}" type="button"><span>${label}</span></button>`).join("") : ""}</div>${interactive ? `<div id="course-part-detail" class="course-part-detail" aria-live="polite"><strong>${selected?.[1] ?? "Tap a part to explore"}</strong><span>${selected?.[2] ?? "Learn what each part does before you hold the instrument."}</span></div>` : ""}`;
+  }
+
   private rhythmVisual(activity: RhythmActivity | PerformanceActivity): string {
     const sounded = activity.strokes.filter((stroke) => stroke.sounded);
-    return `<div class="course-rhythm-lane">${activity.strokes.map((stroke) => `<span class="${stroke.sounded ? "is-sounded" : "is-air"}"><small>${stroke.slot % 2 === 0 ? Math.floor(stroke.slot / 2) + 1 : "&"}</small><strong>${stroke.sounded ? stroke.direction === "down" ? "↓" : "↑" : "○"}</strong><i>${stroke.sounded ? "sound" : "air"}</i></span>`).join("")}</div><p class="course-measure-note">${activity.bpm} BPM · ${sounded.length} sounding ${sounded.length === 1 ? "stroke" : "strokes"} · direction is taught visually; microphone scoring measures timing only.</p>`;
+    return `<div class="course-tempo-header"><span><strong>${activity.bpm}</strong> BPM</span><p>${Math.round(60_000 / activity.bpm)} ms between quarter-note pulses</p></div><div class="course-rhythm-lane">${activity.strokes.map((stroke) => `<span data-slot="${stroke.slot}" class="${stroke.sounded ? "is-sounded" : "is-air"} ${stroke.slot === this.activeRhythmSlot ? "is-active" : ""}"><small>${stroke.slot % 2 === 0 ? Math.floor(stroke.slot / 2) + 1 : "&"}</small><strong>${stroke.sounded ? stroke.direction === "down" ? "↓" : "↑" : "○"}</strong><i>${stroke.sounded ? "strum" : "air"}</i></span>`).join("")}</div><p class="course-measure-note">${sounded.length} sounding ${sounded.length === 1 ? "stroke" : "strokes"} · the arrow teaches hand travel; microphone scoring measures timing only.</p>`;
   }
 
   private playControls(activity: CourseActivity): string {
-    if (activity.kind === "self-check") return `<fieldset class="course-checklist"><legend>Complete the physical check</legend>${activity.checks.map((check) => `<label><input data-course-check type="checkbox"> <span>${check}</span></label>`).join("")}</fieldset><button id="course-submit" class="course-primary" type="button">Check this page</button>`;
+    if (activity.kind === "self-check") return `<p class="course-mode-note"><strong>No microphone needed.</strong> This is an honest comfort check, not a scored recording.</p><fieldset class="course-checklist"><legend>Complete the physical check</legend>${activity.checks.map((check) => `<label><input data-course-check type="checkbox"> <span>${check}</span></label>`).join("")}</fieldset><button id="course-submit" class="course-primary" type="button">Save this check</button>`;
+    if (activity.kind === "rhythm" || activity.kind === "performance") return this.rhythmControls(activity);
     const mic = this.input === "real" ? `<div class="course-mic-row"><button id="course-mic-toggle" type="button">${this.options.tuner.isListening ? "Stop listening" : "Start listening"}</button><span>${this.micStatus}</span></div>` : "";
     const status = activity.kind === "note-sequence" || activity.kind === "compose"
       ? `${this.heardMidi.length} notes heard`
       : activity.kind === "chord"
-        ? `${this.heardChords.length} chords checked`
+        ? this.input === "real"
+          ? `Chord ${Math.min(activity.chords.length, this.heardChords.length + 1)} of ${activity.chords.length} · ${this.heardMidi.length} of 4 strings matched`
+          : `${this.heardChords.length} chords checked`
         : `${this.strumTimes.length} attacks heard`;
     const chordCaveat = this.input === "real" && activity.kind === "chord"
-      ? `<p class="course-honesty-note">Whole-chord recognition needs a short polyphonic recording. If confidence is low, use Check chord and pick each string separately; this page will not guess.</p>`
+      ? `<p class="course-honesty-note"><strong>Reliable chord check:</strong> pick strings 4 → 3 → 2 → 1. Each accepted pitch advances automatically; then strum the shape for yourself.</p>`
       : "";
-    return `${mic}<div class="course-now-try"><span>Now you try</span><strong>${status}</strong><p>${this.input === "screen" ? "Use the playable ukulele below. Targets update as you play." : "Start listening, then play one clear attempt near this device."}</p></div>${chordCaveat}<button id="course-submit" class="course-primary" type="button">Check my attempt</button>`;
+    return `${mic}<div class="course-now-try"><span>Your progress</span><strong>${status}</strong><p id="course-attempt-guidance">${this.attemptGuidance(activity)}</p></div>${chordCaveat}<button id="course-submit" class="course-primary" type="button">Check my attempt</button>`;
+  }
+
+  private rhythmControls(activity: RhythmActivity | PerformanceActivity): string {
+    const expected = activity.strokes.filter((stroke) => stroke.sounded).length;
+    const button = this.rhythmPhase === "idle"
+      ? `<button id="course-start-take" class="course-primary" type="button">Start 4-beat count-in</button>`
+      : this.rhythmPhase === "complete"
+        ? `<button id="course-start-take" type="button">Try another take</button>`
+        : `<button id="course-stop-take" type="button">Stop take</button>`;
+    const count = Math.max(1, 5 - Math.max(1, this.countInBeat));
+    const phase = this.rhythmPhase === "count-in" ? `Starting in ${count}…`
+      : this.rhythmPhase === "recording" ? `Your turn · ${this.strumTimes.length} of ${expected} attacks heard`
+        : this.rhythmPhase === "complete" ? `Take ready · ${this.strumTimes.length} attacks heard`
+          : "Ready when you are";
+    return `<div class="course-attempt-panel" data-phase="${this.rhythmPhase}"><div class="course-attempt-status"><span>${phase}</span><strong>${this.rhythmPhase === "count-in" ? count : this.rhythmPhase === "recording" ? "PLAY" : `${this.strumTimes.length}/${expected}`}</strong></div><p id="course-attempt-guidance">Strum once on each bright pulse. Listen to four clicks first; your turn begins after count 1.</p><div class="course-take-actions">${button}<button id="course-hear" type="button">Hear the pattern</button></div><small>${this.input === "real" ? "The microphone starts with the count-in. Recording pulses stay visual so speaker clicks are not mistaken for your strums." : "Use the on-screen ukulele after the count-in."}</small></div><button id="course-submit" class="course-primary" type="button">Check my attempt</button>`;
+  }
+
+  private attemptGuidance(activity: CourseActivity): string {
+    if (activity.kind === "note-sequence") return this.input === "screen" ? "Play the highlighted string and fret; the next note will move forward automatically." : "Play one clear note and let it ring until the next target appears.";
+    if (activity.kind === "chord") {
+      if (this.input === "screen") return "Load the shown shape and strum all four strings together.";
+      const chord = activity.chords[Math.min(this.heardChords.length, activity.chords.length - 1)];
+      const targetIndex = Math.min(this.heardMidi.length, 3);
+      return `Hold ${chord}, then pick string ${4 - targetIndex} by itself. Target: ${noteName(chordMidiNotes(chord)[targetIndex])}.`;
+    }
+    if (activity.kind === "compose") return "Choose one note at a time until all phrase spaces are filled.";
+    return "Follow the highlighted target.";
   }
 
   private recapMarkup(lesson: CourseLesson): string {
@@ -325,9 +454,13 @@ export class CourseController {
     return `<div class="course-recap"><span>${saved?.secureAt ? "Secure ✓" : saved?.completedAt ? "Completed" : "Ready to attempt"}</span><h4>${lesson.objective}</h4><p>${saved?.bestResult?.retryHint ?? "Return to Check when you are ready to make a measured attempt."}</p>${saved?.bestResult && !saved.bestResult.secure ? `<button id="course-ask-astra" type="button">Ask Astra for one focused retry</button><small>Powered by GPT-6 Astra · optional</small>` : ""}</div>`;
   }
 
-  private evaluationMarkup(): string {
+  private evaluationMarkup(activity: CourseActivity): string {
     if (!this.activityEvaluation) return "";
-    const label = this.activityEvaluation.secure ? "Secure ✓" : this.instrumentRevealed ? "Exploratory" : "Attempt recorded";
+    const label = activity.kind === "ear-choice"
+      ? this.activityEvaluation.accuracy === 1
+        ? this.instrumentRevealed ? "Correct · Exploratory" : "Correct ✓"
+        : "Not yet"
+      : this.activityEvaluation.secure ? "Secure ✓" : this.instrumentRevealed ? "Exploratory" : "Attempt recorded";
     return `<strong>${label}</strong><p>${this.activityEvaluation.retryHint}</p>${this.activityEvaluation.accuracy === null ? "" : `<span>${Math.round(this.activityEvaluation.accuracy * 100)}% of the objective landed</span>`}`;
   }
 
@@ -339,6 +472,7 @@ export class CourseController {
       const checks = [...this.options.root.querySelectorAll<HTMLInputElement>("[data-course-check]")];
       submit.disabled = checks.length === 0 || !checks.every((check) => check.checked);
     }
+    if (submit && (activity.kind === "rhythm" || activity.kind === "performance")) submit.disabled = this.rhythmPhase !== "complete";
   }
 
   private answerEarChoice(choice: string): void {
@@ -346,7 +480,80 @@ export class CourseController {
     const activity = courseLesson(this.lessonId).activities[this.stageIndex];
     if (activity.kind !== "ear-choice") return;
     this.activityEvaluation = evaluateCourseEarChoice(activity.correctChoice, choice, this.instrumentRevealed);
-    this.render();
+    this.selectedAnswer = choice;
+    this.renderCurrentStage();
+  }
+
+  private selectInstrumentPart(partId: string): void {
+    this.selectedPart = partId;
+    const parts = [...this.options.root.querySelectorAll<HTMLButtonElement>("[data-course-part]")];
+    parts.forEach((part) => {
+      const selected = part.dataset.coursePart === partId;
+      part.classList.toggle("is-selected", selected);
+      part.setAttribute("aria-pressed", String(selected));
+    });
+    const detail = this.options.root.querySelector<HTMLElement>("#course-part-detail");
+    const copy: Readonly<Record<string, [string, string]>> = {
+      headstock: ["Headstock", "Holds the tuning pegs."],
+      neck: ["Neck", "Supports the fretboard and fretting hand."],
+      strings: ["Strings", "Four vibrating voices: G, C, E, A."],
+      "sound-hole": ["Sound hole", "Lets the vibrating body project sound."],
+      bridge: ["Bridge", "Anchors the strings to the body."],
+      body: ["Body", "Amplifies the strings naturally."],
+    };
+    const selected = copy[partId];
+    if (detail && selected) detail.innerHTML = `<strong>${selected[0]}</strong><span>${selected[1]}</span>`;
+  }
+
+  private async startRhythmAttempt(): Promise<void> {
+    if (!this.lessonId) return;
+    const activity = courseLesson(this.lessonId).activities[this.stageIndex];
+    if (activity.kind !== "rhythm" && activity.kind !== "performance") return;
+    if (!(await this.options.ensureAudio())) return;
+    this.stopReference();
+    this.strumTimes = [];
+    this.activityEvaluation = null;
+    this.rhythmPhase = "count-in";
+    this.countInBeat = 0;
+    this.activeRhythmSlot = -1;
+    this.onsetDetector.reset();
+    if (this.input === "real" && !this.options.tuner.isListening) {
+      await this.startMicrophone();
+      if (!this.options.tuner.isListening) {
+        this.rhythmPhase = "idle";
+        this.renderCurrentStage();
+        return;
+      }
+    }
+    const beatMs = 60_000 / activity.bpm;
+    for (let beat = 1; beat <= 4; beat += 1) {
+      this.referenceTimers.push(window.setTimeout(() => {
+        this.countInBeat = beat;
+        this.options.audio.playMetronomeClick(beat === 1);
+        this.renderCurrentStage();
+      }, (beat - 1) * beatMs));
+    }
+    this.referenceTimers.push(window.setTimeout(() => {
+      this.rhythmPhase = "recording";
+      this.activeRhythmSlot = -1;
+      this.renderCurrentStage();
+      const slotMs = beatMs / 2;
+      for (const stroke of activity.strokes) {
+        this.referenceTimers.push(window.setTimeout(() => {
+          if (this.rhythmPhase !== "recording") return;
+          this.activeRhythmSlot = stroke.slot;
+          this.renderCurrentStage();
+        }, stroke.slot * slotMs));
+      }
+      const finalSlot = Math.max(...activity.strokes.map((stroke) => stroke.slot), 0);
+      this.referenceTimers.push(window.setTimeout(() => {
+        this.activeRhythmSlot = -1;
+        this.rhythmPhase = "complete";
+        this.stopMicrophone();
+        this.renderCurrentStage();
+      }, (finalSlot + 4) * slotMs));
+    }, 4 * beatMs));
+    this.renderCurrentStage();
   }
 
   private submitActivity(): void {
@@ -382,26 +589,45 @@ export class CourseController {
   }
 
   private rhythmEvaluation(activity: RhythmActivity | PerformanceActivity): LessonEvaluation {
-    const expected = activity.strokes.filter((stroke) => stroke.sounded).length;
-    if (!this.strumTimes.length) return evaluateCourseRhythm({ expectedCount: expected, onTime: 0, missed: expected, extra: 0 });
-    const expectedGap = 60_000 / activity.bpm / 2;
-    let onTime = 1;
-    for (let index = 1; index < Math.min(expected, this.strumTimes.length); index += 1) {
-      const gap = this.strumTimes[index] - this.strumTimes[index - 1];
-      if (Math.abs(gap - expectedGap) <= Math.max(90, expectedGap * 0.22)) onTime += 1;
-    }
-    return evaluateCourseRhythm({ expectedCount: expected, onTime, missed: Math.max(0, expected - this.strumTimes.length), extra: Math.max(0, this.strumTimes.length - expected) });
+    return evaluateCourseRhythmTiming(activity.strokes, activity.bpm, this.strumTimes);
   }
 
   private async playReference(speed: number): Promise<void> {
     if (!this.lessonId || !(await this.options.ensureAudio())) return;
-    const activity = courseLesson(this.lessonId).activities[this.stageIndex];
-    const notes = activity.kind === "explain" ? activity.referenceNotes ?? []
-      : activity.kind === "ear-choice" ? activity.referenceNotes
-        : activity.kind === "note-sequence" ? activity.notes.map((note) => note.midi)
-          : activity.kind === "chord" ? activity.chords.flatMap((chord) => chordMidiNotes(chord))
-            : [];
+    const lesson = courseLesson(this.lessonId);
+    const activity = lesson.activities[this.stageIndex];
+    const play = lesson.activities.find((candidate) => candidate.stage === "play");
+    const demonstration = (activity.stage === "hear" || activity.stage === "guess") && play ? play : activity;
     this.stopReference();
+    if (demonstration.kind === "rhythm" || demonstration.kind === "performance") {
+      const slotMs = 60_000 / demonstration.bpm / 2 / speed;
+      const demonstrationChords = demonstration.kind === "performance" ? demonstration.chords : null;
+      demonstration.strokes.forEach((stroke) => {
+        if (!stroke.sounded) return;
+        this.referenceTimers.push(window.setTimeout(() => {
+          const chordIndex = demonstrationChords
+            ? Math.min(demonstrationChords.length - 1, Math.floor(stroke.slot / 2) % demonstrationChords.length)
+            : -1;
+          const midis = demonstrationChords && chordIndex >= 0 ? chordMidiNotes(demonstrationChords[chordIndex]) : chordMidiNotes("C");
+          this.options.audio.strum(midis, stroke.direction, 0.6);
+          this.options.audio.playMetronomeClick(stroke.slot === 0);
+        }, stroke.slot * slotMs));
+      });
+      return;
+    }
+    if (demonstration.kind === "chord") {
+      const gap = 950 / speed;
+      demonstration.chords.forEach((chord, index) => this.referenceTimers.push(window.setTimeout(() => {
+        this.options.audio.strum(chordMidiNotes(chord), "down", 0.62);
+      }, index * gap)));
+      return;
+    }
+    const fallbackNotes = activity.kind === "explain" ? activity.referenceNotes ?? []
+      : activity.kind === "ear-choice" ? activity.referenceNotes : [];
+    const notes: readonly number[] = demonstration.kind === "explain" ? demonstration.referenceNotes ?? []
+      : demonstration.kind === "ear-choice" ? demonstration.referenceNotes
+        : demonstration.kind === "note-sequence" ? demonstration.notes.map((note) => note.midi)
+          : fallbackNotes;
     const gap = 520 / speed;
     notes.forEach((midi, index) => this.referenceTimers.push(window.setTimeout(() => {
       this.options.audio.pluckString(index % 4, midi, 0.66);
@@ -418,7 +644,7 @@ export class CourseController {
     const activity = courseLesson(this.lessonId).activities[this.stageIndex];
     if (activity.kind === "ear-choice" && !this.activityEvaluation) {
       this.instrumentRevealed = true;
-      this.render();
+      this.renderCurrentStage();
       return;
     }
     if (this.input !== "screen" || (activity.stage !== "play" && activity.stage !== "check")) return;
@@ -426,7 +652,7 @@ export class CourseController {
     else if (activity.kind === "compose") this.heardMidi = [...this.heardMidi, detail.midi].slice(-activity.noteCount);
     else return;
     this.activityEvaluation = null;
-    this.render();
+    this.renderCurrentStage();
   }
 
   private onInstrumentStrum(detail: InstrumentStrumDetail): void {
@@ -434,10 +660,11 @@ export class CourseController {
     const activity = courseLesson(this.lessonId).activities[this.stageIndex];
     if (activity.kind === "ear-choice" && !this.activityEvaluation) {
       this.instrumentRevealed = true;
-      this.render();
+      this.renderCurrentStage();
       return;
     }
     if (this.input !== "screen" || (activity.stage !== "play" && activity.stage !== "check")) return;
+    if ((activity.kind === "rhythm" || activity.kind === "performance") && this.rhythmPhase !== "recording") return;
     if (activity.kind === "chord" || activity.kind === "performance") {
       const candidates = activity.kind === "chord" ? activity.chords : activity.chords;
       const matched = candidates.find((chord) => LESSON_CHORDS[chord].frets.every((fret, index) => fret === detail.frets[index])) ?? null;
@@ -445,37 +672,76 @@ export class CourseController {
     }
     if (activity.kind === "rhythm" || activity.kind === "performance") this.strumTimes = [...this.strumTimes, detail.at];
     this.activityEvaluation = null;
-    this.render();
+    this.renderCurrentStage();
   }
 
   private async startMicrophone(): Promise<void> {
     await this.options.tuner.start((reading, signal) => {
       if (!this.active || this.input !== "real" || !this.lessonId) return;
       const activity = courseLesson(this.lessonId).activities[this.stageIndex];
-      if ((activity.kind === "rhythm" || activity.kind === "performance") && signal.rms > 0.03) {
-        const last = this.strumTimes.at(-1) ?? 0;
-        if (signal.at - last > 180) this.strumTimes.push(signal.at);
+      if ((activity.kind === "rhythm" || activity.kind === "performance") && this.rhythmPhase === "recording") {
+        if (this.onsetDetector.push(signal.rms, signal.at)) {
+          this.strumTimes.push(signal.at);
+          this.renderCurrentStage();
+        }
       }
-      if (!reading || (activity.kind !== "note-sequence" && activity.kind !== "compose")) return;
+      if (!reading || (activity.kind !== "note-sequence" && activity.kind !== "compose" && activity.kind !== "chord")) return;
+      if (activity.kind === "chord" && this.heardChords.length >= activity.chords.length) return;
+      if (activity.kind === "note-sequence" && this.heardMidi.length >= activity.notes.length) return;
       const midi = Math.round(69 + 12 * Math.log2(reading.frequency / 440));
+      if (activity.kind === "note-sequence" || activity.kind === "chord") {
+        const targetMidi = activity.kind === "note-sequence"
+          ? activity.notes[Math.min(this.heardMidi.length, activity.notes.length - 1)].midi
+          : chordMidiNotes(activity.chords[Math.min(this.heardChords.length, activity.chords.length - 1)])[Math.min(this.heardMidi.length, 3)];
+        const confirmation = this.melodyConfirmation.update(reading.frequency, 440 * 2 ** ((targetMidi - 69) / 12), signal.rms, signal.at);
+        if (confirmation.accepted) {
+          const targetIndex = this.heardMidi.length;
+          this.heardMidi.push(targetMidi);
+          if (activity.kind === "chord" && this.heardMidi.length === 4) {
+            const chord = activity.chords[Math.min(this.heardChords.length, activity.chords.length - 1)];
+            this.heardChords.push(chord);
+            this.heardMidi = [];
+            this.micStatus = this.heardChords.length < activity.chords.length
+              ? `${chord} accepted ✓ — next, form ${activity.chords[this.heardChords.length]}.`
+              : `${chord} accepted ✓ — chord sequence complete.`;
+          } else if (activity.kind === "chord") {
+            const chord = activity.chords[Math.min(this.heardChords.length, activity.chords.length - 1)];
+            const nextMidi = chordMidiNotes(chord)[this.heardMidi.length];
+            this.micStatus = `String ${4 - targetIndex} accepted ✓ — next, play string ${4 - this.heardMidi.length} ${noteName(nextMidi)}.`;
+          } else {
+            this.micStatus = `${noteName(targetMidi)} accepted ✓ — ${this.heardMidi.length < activity.notes.length ? `next, play ${activity.notes[this.heardMidi.length].western}` : "note path complete."}`;
+          }
+          const nextTarget = activity.kind === "note-sequence"
+            ? activity.notes[Math.min(this.heardMidi.length, activity.notes.length - 1)]?.midi
+            : this.heardChords.length < activity.chords.length
+              ? chordMidiNotes(activity.chords[this.heardChords.length])[this.heardMidi.length]
+              : undefined;
+          if (nextTarget !== undefined) this.melodyConfirmation.nextExpected(440 * 2 ** ((nextTarget - 69) / 12));
+          this.renderCurrentStage();
+        } else if (confirmation.cents !== undefined && Math.abs(confirmation.cents) > 35) {
+          this.micStatus = `Heard ${noteName(midi)}. Aim for ${noteName(targetMidi)} and let it ring clearly.`;
+        }
+        return;
+      }
       if (midi === this.stableMidi) this.stableFrames += 1;
       else { this.stableMidi = midi; this.stableFrames = 1; }
       if (this.stableFrames >= 3 && signal.at - this.lastAcceptedPitchAt > 320) {
         this.heardMidi.push(midi);
         this.lastAcceptedPitchAt = signal.at;
         this.stableFrames = 0;
-        this.render();
+        this.renderCurrentStage();
       }
     }, (status: TunerStatus, message: string) => {
       this.micStatus = message;
-      if (status === "error" || status === "listening") this.render();
+      if (status === "error" || status === "listening") this.renderCurrentStage();
     });
-    this.render();
+    this.renderCurrentStage();
   }
 
   private stopMicrophone(): void {
     if (this.options.tuner.isListening) this.options.tuner.stop();
     this.micStatus = "Microphone is off.";
+    this.onsetDetector.reset();
   }
 
   private async askAstra(): Promise<void> {
@@ -512,7 +778,7 @@ export class CourseController {
 }
 
 function stageLabel(stage: string): string {
-  return ({ see: "See", hear: "Hear", guess: "Guess", play: "Play", check: "Check", recap: "Recap" } as Record<string, string>)[stage] ?? stage;
+  return ({ see: "Learn", hear: "Listen", guess: "Find", play: "Try", check: "Check", recap: "Finish" } as Record<string, string>)[stage] ?? stage;
 }
 
 function stringNumber(index: number): number { return 4 - index; }

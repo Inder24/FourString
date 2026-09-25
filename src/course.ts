@@ -29,6 +29,7 @@ export interface SelfCheckActivity extends CourseActivityBase {
 
 export interface EarChoiceActivity extends CourseActivityBase {
   kind: "ear-choice";
+  question: string;
   choices: readonly string[];
   correctChoice: string;
   referenceNotes: readonly number[];
@@ -165,6 +166,33 @@ const unitDefinitions = [
   ["expression", "Expression & performance", "Control accents, feel syncopation, and complete a final music lab."],
 ] as const;
 
+const GUESS_QUESTIONS: Readonly<Record<string, string>> = {
+  "your-ukulele": "Which part lets the ukulele body project the sound?",
+  "four-strings": "Which open-string order did you hear?",
+  "find-the-pulse": "Which pulse best matches the example?",
+  "find-sa": "Where did the phrase finally settle?",
+  "climb-sargam": "Which opening Sargam path did you hear?",
+  "steps-skips-echoes": "Did the notes move by a step or a skip?",
+  "beat-bar-four-four": "How many steady beats completed the bar?",
+  "split-the-beat": "How was each beat divided?",
+  "rhythm-echo": "Which rhythm matches the example?",
+  "right-hand-sound": "Which right-hand choice can make a clear tone?",
+  "fingerpicking-flow": "Which string-number path did you hear?",
+  "strumming-vocabulary": "Which strumming pattern matches the example?",
+  "notes-become-chord": "Which three scale tones formed the chord?",
+  "first-chord-family": "Which chord colour did you hear?",
+  "tension-comes-home": "Where did the cadence want to go?",
+  "clean-chord-changes": "Which chord order did you hear?",
+  "hear-progression": "Which progression matches the loop?",
+  "accompany-phrase": "What should the accompaniment follow?",
+  "melody-over-harmony": "Which chord supports this melody?",
+  "hear-hide-remember": "Which hidden note path did you hear?",
+  "musical-sentence": "What made the phrase feel complete?",
+  "dynamics-accents": "Where did the strongest accent land?",
+  "syncopation-groove": "Which groove placed sounds off the beat?",
+  "final-music-lab": "Which chord journey powered the study?",
+};
+
 const lessonSeeds: readonly LessonSeed[] = [
   { id: "your-ukulele", title: "Your ukulele and you", objective: "Name the main parts and settle into a relaxed playing hold.", concept: "A balanced instrument and loose wrist make every later movement easier.", visual: "ukulele", hearNotes: [60, 64, 67, 69], guess: { choices: ["Neck", "Bridge", "Sound hole"], correctChoice: "Sound hole" }, play: { kind: "self-check", checks: ["Body rests without squeezing", "Neck points slightly upward", "Shoulders stay loose", "Strumming wrist can swing"] }, labels: ["Theory", "Posture"] },
   { id: "four-strings", title: "Four strings, four voices", objective: "Recognise and play open G, C, E, and A.", concept: "High-G tuning is re-entrant: string 4 is higher than the open C beside it.", visual: "ukulele", hearNotes: [67, 60, 64, 69], guess: { choices: ["G · C · E · A", "A · E · C · G", "C · D · E · F"], correctChoice: "G · C · E · A" }, play: { kind: "note-sequence", notes: [{ stringIndex: 0, fret: 0, midi: 67, western: "G4" }, { stringIndex: 1, fret: 0, midi: 60, western: "C4" }, { stringIndex: 2, fret: 0, midi: 64, western: "E4" }, { stringIndex: 3, fret: 0, midi: 69, western: "A4" }], bpm: 60 }, labels: ["Ear", "Play"] },
@@ -197,11 +225,29 @@ function clonePlayActivity(seed: LessonSeed, stage: "play" | "check"): CourseAct
     id: `${seed.id}-${stage}`,
     stage,
     title: stage === "play" ? "Now you try" : "Check what landed",
-    instruction: stage === "play" ? seed.objective : "Play once more and let Four Strings measure the lesson objective.",
+    instruction: stage === "play" ? playInstruction(seed.play) : checkInstruction(seed.play),
     required: true,
     supportedInputs: INPUTS,
   } as const;
   return { ...seed.play, ...common } as CourseActivity;
+}
+
+function playInstruction(play: PlayDefinition): string {
+  if (play.kind === "self-check") return "Settle the instrument into position, then confirm each physical cue when it feels relaxed.";
+  if (play.kind === "note-sequence") return "Follow the highlighted notes in order. Each accepted note moves the target forward.";
+  if (play.kind === "chord") return "Form each shown shape, let all four strings ring, then move to the next chord.";
+  if (play.kind === "rhythm") return "Listen to the count-in, then strum once on each bright pulse.";
+  if (play.kind === "compose") return "Choose notes on the playable fretboard to build your own complete phrase.";
+  return "Follow the chord path and place each strum on the bright pulse.";
+}
+
+function checkInstruction(play: PlayDefinition): string {
+  if (play.kind === "self-check") return "Repeat the posture check once more without tension.";
+  if (play.kind === "note-sequence") return "Play the complete note path once more without stopping.";
+  if (play.kind === "chord") return "Play the chord sequence once more and check that every string rings.";
+  if (play.kind === "rhythm") return "Repeat the pulse once more; Four Strings checks attack timing, not hand direction.";
+  if (play.kind === "compose") return "Replay the phrase you created from memory.";
+  return "Perform the full study once more, keeping the chord changes inside the pulse.";
 }
 
 function makeLesson(seed: LessonSeed, number: number): CourseLesson {
@@ -212,8 +258,10 @@ function makeLesson(seed: LessonSeed, number: number): CourseLesson {
     supportedInputs: INPUTS, visual: seed.visual, referenceNotes: seed.hearNotes,
   };
   const guess: EarChoiceActivity = {
-    id: `${seed.id}-guess`, stage: "guess", kind: "ear-choice", title: "What did you hear?",
-    instruction: "Choose before using the instrument if you want this answer to count toward Secure.", required: true,
+    id: `${seed.id}-guess`, stage: "guess", kind: "ear-choice", title: GUESS_QUESTIONS[seed.id], question: GUESS_QUESTIONS[seed.id],
+    instruction: seed.id === "your-ukulele"
+      ? "Use the part map you just explored and choose the part that matches the description."
+      : "Listen first, then choose before using the playable instrument if you want this answer to count toward Secure.", required: true,
     supportedInputs: INPUTS, choices: seed.guess.choices, correctChoice: seed.guess.correctChoice, referenceNotes: seed.hearNotes,
   };
   return {

@@ -31,7 +31,25 @@ describe("Book One curriculum", () => {
         || activity.kind === "performance"
         || activity.kind === "self-check")).toBe(true);
       expect(lesson.activities.some((activity) => activity.id === lesson.secureActivityId)).toBe(true);
+      const guess = lesson.activities.find((activity) => activity.stage === "guess");
+      expect(guess?.kind).toBe("ear-choice");
+      if (guess?.kind === "ear-choice") {
+        expect(guess.question.length).toBeGreaterThan(12);
+        expect(guess.question).not.toBe("What did you hear?");
+      }
     }
+  });
+
+  it("keeps instrument anatomy separate from pitch-path visuals", () => {
+    const firstLesson = courseLesson("your-ukulele");
+    const see = firstLesson.activities.find((activity) => activity.stage === "see");
+    const guess = firstLesson.activities.find((activity) => activity.stage === "guess");
+    expect(see).toMatchObject({ kind: "explain", visual: "ukulele" });
+    expect(guess).toMatchObject({
+      kind: "ear-choice",
+      question: "Which part lets the ukulele body project the sound?",
+      correctChoice: "Sound hole",
+    });
   });
 
   it("teaches Sargam as the primary language with Western translations", () => {
